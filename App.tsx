@@ -1,0 +1,529 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { SymbolData, SymbolType, CoinType, GameState, ROWS, COLS } from './types';
+import { ThemeId } from './constants';
+import SlotCell from './components/SlotCell';
+import BonusOverlay from './components/BonusOverlay';
+import InfoModal from './components/InfoModal';
+import DepositModal from './components/DepositModal';
+import { Loader2, Wallet, X, Volume2, Settings, Info, Zap, Star, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useGameEngine } from './hooks/useGameEngine';
+
+// Configuration
+const BET_VALUES = [0.1, 0.3, 0.5, 1, 1.5, 2, 2.5];
+const STAR_BET_VALUES = [1, 5, 10, 25, 50, 100, 250, 500];
+
+export default function App() {
+  useEffect(() => {
+    const w = window as any;
+    if (w.Telegram && w.Telegram.WebApp) {
+      w.Telegram.WebApp.ready();
+      try { w.Telegram.WebApp.expand(); } catch {}
+      const tp = w.Telegram.WebApp.themeParams || {};
+      if (tp.bg_color) document.documentElement.style.setProperty('--tg-bg', tp.bg_color);
+      if (tp.text_color) document.documentElement.style.setProperty('--tg-text', tp.text_color);
+      if (tp.secondary_bg_color) document.documentElement.style.setProperty('--tg-secondary', tp.secondary_bg_color);
+      if (tp.button_color) document.documentElement.style.setProperty('--tg-accent', tp.button_color);
+    }
+  }, []);
+  const [currency, setCurrency] = useState<'TON' | 'STARS'>('TON');
+  const [currentTheme, setCurrentTheme] = useState<ThemeId>('durov');
+  
+  // Shared balances
+  const [balance, setBalance] = useState(0);
+  const [starsBalance, setStarsBalance] = useState(0);
+
+  const [bet, setBet] = useState(BET_VALUES[0]);
+  const [showInfo, setShowInfo] = useState(false);
+  const [showDeposit, setShowDeposit] = useState(false);
+
+  const handleDeposit = (amount: number, currencyType: 'TON' | 'STARS') => {
+      if (currencyType === 'TON') {
+          setBalance(prev => prev + amount);
+      } else {
+          setStarsBalance(prev => prev + amount);
+      }
+  };
+
+  // Initialize Game Engines for each theme
+  const durovEngine = useGameEngine({
+    balance,
+    setBalance,
+    starsBalance,
+    setStarsBalance,
+    bet,
+    currency,
+    isActive: currentTheme === 'durov',
+    theme: 'durov'
+  });
+
+  const flourEngine = useGameEngine({
+    balance,
+    setBalance,
+    starsBalance,
+    setStarsBalance,
+    bet,
+    currency,
+    isActive: currentTheme === 'flour',
+    theme: 'flour'
+  });
+
+  // Select active engine based on theme
+  const activeEngine = currentTheme === 'durov' ? durovEngine : flourEngine;
+
+  const {
+    grid,
+    gameState,
+    winData,
+    bonusSpins,
+    bonusTotal,
+    spinningColumns,
+    bonusEffects,
+    activeSpecialCells,
+    handleSpin,
+    handleBuyBonus
+  } = activeEngine;
+
+  // Reset bet when currency changes
+  useEffect(() => {
+      setBet(currency === 'TON' ? BET_VALUES[0] : STAR_BET_VALUES[0]);
+  }, [currency]);
+
+  const currentBetValues = currency === 'TON' ? BET_VALUES : STAR_BET_VALUES;
+  const currentBalance = currency === 'TON' ? balance : starsBalance;
+
+  const increaseBet = () => {
+      const idx = currentBetValues.indexOf(bet);
+      if (idx < currentBetValues.length - 1) setBet(currentBetValues[idx + 1]);
+  };
+
+  const decreaseBet = () => {
+      const idx = currentBetValues.indexOf(bet);
+      if (idx > 0) setBet(currentBetValues[idx - 1]);
+  };
+
+  const isGameLocked = gameState === GameState.SPINNING || gameState === GameState.BONUS_TRANSITION || gameState === GameState.BONUS_ACTIVE || gameState === GameState.BONUS_PAYOUT;
+  const isBonus = gameState === GameState.BONUS_ACTIVE || gameState === GameState.BONUS_TRANSITION || gameState === GameState.BONUS_PAYOUT;
+
+  return (
+    <div className="min-h-screen flex flex-col md:flex-row text-white font-sans overflow-hidden">
+      
+      <InfoModal isOpen={showInfo} onClose={() => setShowInfo(false)} theme={currentTheme} />
+      <DepositModal 
+        isOpen={showDeposit} 
+        onClose={() => setShowDeposit(false)} 
+        onDeposit={handleDeposit} 
+        currentCurrency={currency} 
+      />
+
+      {/* Sidebar (Desktop) / Header (Mobile) */}
+      <div className={`w-full md:w-80 md:border-r border-white/5 flex flex-col z-20 shadow-xl ${currentTheme === 'flour' ? 'bg-[#132a13]' : 'bg-[#17212b]'}`}>
+        {/* Header */}
+        <div className={`h-14 flex items-center justify-between px-4 border-b border-white/5 ${currentTheme === 'flour' ? 'bg-[#132a13]' : 'bg-[#232e3c]'}`}>
+            <div className="flex items-center gap-2">
+                <div className="flex flex-col">
+                    <span className="font-bold text-sm leading-tight">GIFT SLOT</span>
+                    <span className="text-[10px] text-blue-400">@giftslot</span>
+                </div>
+            </div>
+            <div className="flex gap-2">
+                <button className="p-2 hover:bg-white/5 rounded-full"><Volume2 size={18} className="text-gray-400" /></button>
+                <button 
+                  onClick={() => setShowInfo(true)}
+                  className="p-2 hover:bg-white/5 rounded-full"
+                >
+                    <Info size={18} className="text-gray-400" />
+                </button>
+            </div>
+        </div>
+
+        {/* Balance Card & Currency Switch */}
+        <div className="p-4 flex flex-col gap-3">
+             {/* Currency Switcher */}
+             <div className="flex bg-black/20 p-1 rounded-xl">
+                 <button 
+                    onClick={() => !isGameLocked && setCurrency('TON')}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${currency === 'TON' ? 'bg-blue-500 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                 >
+                    TON
+                 </button>
+                 <button 
+                    onClick={() => !isGameLocked && setCurrency('STARS')}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${currency === 'STARS' ? 'bg-yellow-500 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                 >
+                    STARS
+                 </button>
+             </div>
+
+            <div className={`${currentTheme === 'flour' ? 'bg-[#31572c] border border-white/10' : 'glass-panel'} p-4 rounded-2xl flex flex-col gap-1 relative overflow-hidden group`}>
+                 <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
+                     {currency === 'TON' ? <Wallet size={48} /> : <Star size={48} />}
+                 </div>
+                 <div className="flex justify-between items-start relative z-10">
+                    <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Total Balance</span>
+                    <button 
+                        onClick={() => setShowDeposit(true)}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${currency === 'TON' ? 'bg-blue-500 hover:bg-blue-400' : 'bg-yellow-500 hover:bg-yellow-400'}`}
+                    >
+                        <Plus size={14} className="text-white" />
+                    </button>
+                 </div>
+                 <div className="flex items-end gap-1.5 relative z-10">
+                     <span className="text-3xl font-bold tracking-tight">
+                        {currency === 'TON' ? balance.toLocaleString() : starsBalance.toLocaleString()}
+                     </span>
+                     <span className={`font-bold mb-1 ${currency === 'TON' ? 'text-blue-400' : 'text-yellow-400'}`}>
+                        {currency === 'TON' ? 'TON' : 'STARS'}
+                     </span>
+                 </div>
+            </div>
+        </div>
+
+
+
+        {/* Desktop Controls Spacer */}
+        <div className="hidden md:flex flex-1 flex-col justify-between p-4 gap-4">
+             <div className="flex flex-col gap-4">
+                 {/* Durov Slot Button */}
+                 <button 
+                    onClick={() => !isGameLocked && setCurrentTheme('durov')}
+                    disabled={isGameLocked}
+                    className={`w-full hover:scale-105 transition-transform duration-200 group ${currentTheme === 'durov' ? 'ring-2 ring-blue-500 rounded-xl' : ''} ${isGameLocked ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''}`}
+                 >
+                     <img src="/durovslot.png" alt="Durov Slot" className="w-full h-auto rounded-xl shadow-lg border border-white/10 group-hover:shadow-blue-500/20" />
+                 </button>
+
+                 {/* Flour Slot Button */}
+                 <button 
+                    onClick={() => !isGameLocked && setCurrentTheme('flour')}
+                    disabled={isGameLocked}
+                    className={`w-full hover:scale-105 transition-transform duration-200 group ${currentTheme === 'flour' ? 'ring-2 ring-blue-500 rounded-xl' : ''} ${isGameLocked ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''}`}
+                 >
+                     <img src="/flourslot.png" alt="Flour Slot" className="w-full h-auto rounded-xl shadow-lg border border-white/10 group-hover:shadow-blue-500/20" />
+                 </button>
+             </div>
+
+
+        </div>
+      </div>
+
+      {/* Main Game Stage */}
+      <main 
+        className={`flex-1 relative flex flex-col items-center justify-center p-4 md:p-8 perspective-1000`}
+      >
+        {/* Animated Background */}
+        <div className="absolute inset-0 z-0">
+             <AnimatePresence mode="popLayout">
+                 <motion.div
+                    key={currentTheme}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                    style={{
+                        backgroundImage: currentTheme === 'durov' ? "url('/fonsik 2.png')" : (currentTheme === 'flour' ? "url('/fonflow.png')" : 'none')
+                    }}
+                 />
+             </AnimatePresence>
+        </div>
+        
+        {/* Background Atmosphere */}
+        <div className="absolute inset-0 z-0 pointer-events-none">
+             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-blue-500/5 rounded-full blur-[100px]" />
+        </div>
+
+        {/* Game Container */}
+        <AnimatePresence mode="wait">
+        <motion.div 
+            key={currentTheme}
+            initial={{ x: 300, opacity: 0, rotateY: 90 }}
+            animate={{ x: 0, opacity: 1, rotateY: 0 }}
+            exit={{ x: -300, opacity: 0, rotateY: -90 }}
+            transition={{ duration: 0.5, type: "spring", damping: 20, stiffness: 100 }}
+            className="relative z-10 w-full max-w-lg md:max-w-2xl"
+        >
+          
+          {/* Header Info (Bet/Win) */}
+          <div className="flex justify-between items-center mb-4 px-2">
+             <div className="glass-panel px-4 py-1.5 rounded-full flex items-center gap-2">
+                 <span className="text-xs text-gray-400 uppercase">Bet</span>
+                 <span className="font-bold text-white">{bet}</span>
+             </div>
+             <div className="glass-panel px-4 py-1.5 rounded-full flex items-center gap-2">
+                 <span className="text-xs text-gray-400 uppercase">Win</span>
+                 <span className="font-bold text-yellow-400">{winData ? winData.winAmount.toFixed(2) : '0.00'}</span>
+             </div>
+          </div>
+
+          {/* THE GRID */}
+          <div className={`relative p-3 rounded-3xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden ${currentTheme === 'flour' ? 'bg-[#52612D]' : 'bg-[#17212b]'}`}>
+             {/* Decorative Top Shine */}
+             <div className="absolute top-0 left-10 right-10 h-[1px] bg-gradient-to-r from-transparent via-blue-400/50 to-transparent" />
+
+             {isBonus && <BonusOverlay spinsLeft={bonusSpins} totalWin={bonusTotal} />}
+             
+             {/* Effect Layer for Coin Animations */}
+             <AnimatePresence>
+                {bonusEffects.map(effect => {
+                    // Calculate positions based on grid (simplified % calculation)
+                    // Each cell is roughly 20% width/height of the container
+                    const startX = `${effect.from.c * 20 + 10}%`;
+                    const startY = `${effect.from.r * 25 + 12.5}%`; // 4 rows = 25% height
+                    const endX = `${effect.to.c * 20 + 10}%`;
+                    const endY = `${effect.to.r * 25 + 12.5}%`;
+
+                    return (
+                        <motion.div
+                            key={effect.id}
+                            initial={{ left: startX, top: startY, opacity: 1, scale: 1 }}
+                            animate={{ left: endX, top: endY, opacity: 0, scale: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 1.5, ease: "easeInOut" }}
+                            className={`absolute w-6 h-6 rounded-full z-40 pointer-events-none shadow-[0_0_20px_currentColor] ${
+                                effect.type === 'red' ? 'bg-red-500 text-red-500' : 'bg-yellow-400 text-yellow-400'
+                            }`}
+                        >
+                            <div className={`absolute inset-0 rounded-full blur-sm ${effect.type === 'red' ? 'bg-red-500' : 'bg-yellow-400'}`} />
+                        </motion.div>
+                    );
+                })}
+             </AnimatePresence>
+
+             <div className="grid grid-cols-5 gap-2 md:gap-3">
+               {/* Columns */}
+               {Array.from({ length: COLS }).map((_, cIndex) => (
+                   <div key={cIndex} className="flex flex-col gap-2 md:gap-3">
+                       {/* Rows */}
+                       {Array.from({ length: ROWS }).map((_, rIndex) => {
+                           const cell = grid[rIndex][cIndex];
+                           const isWinning = winData?.winningLines.some(l => l.row === rIndex && l.col === cIndex);
+                           // This specific column is spinning
+                           const isColSpinning = spinningColumns[cIndex];
+                           const isActiveSpecial = activeSpecialCells.some(c => c.r === rIndex && c.c === cIndex);
+                           const isUnderWild = currentTheme === 'flour' && rIndex > 0 && grid[rIndex - 1][cIndex].type === SymbolType.WILD;
+
+                           return (
+                               <div key={`${rIndex}-${cIndex}`} className="aspect-square relative" style={{ zIndex: ROWS - rIndex }}>
+                                   <SlotCell 
+                                       symbol={cell} 
+                                       highlight={!!isWinning} 
+                                       isBonusMode={isBonus}
+                                       isSpinning={isColSpinning}
+                                       isActiveSpecial={isActiveSpecial}
+                                       theme={currentTheme}
+                                       isUnderWild={isUnderWild}
+                                   />
+                               </div>
+                           );
+                       })}
+                   </div>
+               ))}
+             </div>
+             
+             {/* Win Popup Overlay */}
+             <AnimatePresence>
+             {gameState === GameState.WIN_ANIMATION && (
+                <motion.div 
+                   initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
+                   animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                   exit={{ opacity: 0, scale: 1.2 }}
+                   className="absolute inset-0 pointer-events-none z-30 flex items-center justify-center"
+                >
+                    <div className="bg-gradient-to-br from-yellow-500 to-orange-600 p-[2px] rounded-2xl shadow-[0_0_50px_rgba(255,165,0,0.6)]">
+                        <div className="bg-[#17212b] px-10 py-6 rounded-2xl flex flex-col items-center border border-white/10">
+                            <span className="text-yellow-400 font-black uppercase text-2xl tracking-widest drop-shadow-md">Big Win</span>
+                            <span className="text-5xl font-bold text-white mt-2 drop-shadow-lg tracking-tighter">{winData?.winAmount.toFixed(2)}</span>
+                        </div>
+                    </div>
+                </motion.div>
+             )}
+             </AnimatePresence>
+
+             {/* Bonus Payout Overlay */}
+              <AnimatePresence>
+              {gameState === GameState.BONUS_PAYOUT && (
+                <motion.div 
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="absolute inset-0 pointer-events-none z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-3xl"
+                >
+                    <div className="text-center">
+                       <motion.div 
+                         initial={{ scale: 0 }} animate={{ scale: 1 }} 
+                         className="text-2xl font-bold text-white mb-2"
+                       >
+                           Bonus Collected
+                       </motion.div>
+                       <motion.div 
+                         initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} delay={0.2}
+                         className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 drop-shadow-lg"
+                       >
+                           {bonusTotal.toFixed(2)}
+                       </motion.div>
+                       <div className="text-sm text-gray-400 mt-2">{currency === 'TON' ? 'TON COINS' : 'STARS'}</div>
+                    </div>
+                </motion.div>
+             )}
+             </AnimatePresence>
+          </div>
+        </motion.div>
+        </AnimatePresence>
+      </main>
+
+      {/* Controls Bar (Mobile Bottom / Desktop Bottom Sticky) */}
+      <div className={`${currentTheme === 'flour' ? 'bg-[#132a13]' : 'bg-[#17212b]'} border-t border-white/5 p-4 z-30 md:hidden`}>
+         
+         {/* Mobile Theme Switcher */}
+         <div className="flex items-center justify-between gap-2 mb-2">
+            <button 
+                onClick={() => !isGameLocked && setCurrentTheme(currentTheme === 'durov' ? 'flour' : 'durov')}
+                disabled={isGameLocked}
+                className="p-1 rounded-full bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+            >
+                <ChevronLeft size={20} />
+            </button>
+
+            <div className="flex-1 h-16 flex items-center justify-center relative bg-white/5 rounded-xl p-1 border border-white/5">
+                <AnimatePresence mode="wait">
+                    <motion.img 
+                        key={currentTheme}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ duration: 0.2 }}
+                        src={currentTheme === 'durov' ? "/durovslot.png" : "/flourslot.png"} 
+                        alt="Theme Preview" 
+                        className="h-full w-full object-contain drop-shadow-lg pointer-events-none"
+                    />
+                </AnimatePresence>
+            </div>
+
+            <button 
+                onClick={() => !isGameLocked && setCurrentTheme(currentTheme === 'durov' ? 'flour' : 'durov')}
+                disabled={isGameLocked}
+                className="p-1 rounded-full bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+            >
+                <ChevronRight size={20} />
+            </button>
+         </div>
+
+         {/* Simple Mobile Controls - mirrored from sidebar logic but simplified */}
+             <div className="flex gap-2">
+                 <div className="flex-1 glass-panel rounded-xl p-1 flex items-center justify-between px-2">
+                     <button onClick={decreaseBet} disabled={isGameLocked || bet <= currentBetValues[0]} className="w-8 h-8 rounded bg-white/5 text-blue-400 font-bold disabled:opacity-50">-</button>
+                     <span className="font-bold text-sm">{bet}</span>
+                     <button onClick={increaseBet} disabled={isGameLocked || bet >= currentBetValues[currentBetValues.length - 1]} className="w-8 h-8 rounded bg-white/5 text-blue-400 font-bold disabled:opacity-50">+</button>
+                 </div>
+                 
+                 {/* Buy Bonus Mobile */}
+                 <button
+                    onClick={handleBuyBonus}
+                    disabled={isGameLocked || currentBalance < Math.round(bet * 100)}
+                    className={`
+                        px-3 rounded-xl flex flex-col items-center justify-center shadow-lg transition-all
+                        ${isGameLocked || currentBalance < Math.round(bet * 100)
+                           ? 'bg-gray-700 text-gray-500' 
+                           : 'bg-gradient-to-b from-yellow-500 to-yellow-700 text-white active:scale-95'
+                        }
+                    `}
+                 >
+                    <Zap size={16} fill="currentColor" />
+                    <span className="text-[10px] font-bold leading-none mt-0.5">{Math.round(bet * 100)}</span>
+                 </button>
+
+             <button
+               onClick={handleSpin}
+               disabled={isGameLocked}
+               className={`
+                 flex-[1.5] h-12 rounded-xl text-lg font-bold transition-all shadow-lg
+                 flex items-center justify-center gap-2
+                 ${isGameLocked 
+                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
+                    : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-blue-500/30 active:scale-95'
+                 }
+               `}
+             >
+                 {isGameLocked ? (
+                     gameState === GameState.SPINNING ? <Loader2 className="animate-spin" /> : <span>Wait...</span>
+                 ) : (
+                     'SPIN'
+                 )}
+             </button>
+         </div>
+      </div>
+
+       {/* Floating Desktop Controls (Bottom Center) */}
+       <div className="hidden md:flex absolute bottom-8 left-[62%] -translate-x-1/2 z-40 gap-6 items-center">
+            {/* Bet Control */}
+            <div className="glass-panel rounded-full p-2 flex items-center gap-4 px-6 shadow-2xl transform hover:scale-105 transition-transform">
+                <span className="text-gray-400 text-xs font-bold uppercase">Bet Amount</span>
+                <div className="flex items-center gap-3">
+                    <button onClick={decreaseBet} disabled={isGameLocked || bet <= currentBetValues[0]} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        -
+                    </button>
+                    <span className="text-xl font-bold min-w-[3ch] text-center">{bet}</span>
+                    <button onClick={increaseBet} disabled={isGameLocked || bet >= currentBetValues[currentBetValues.length - 1]} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        +
+                    </button>
+                </div>
+            </div>
+
+            {/* Buy Bonus Button Desktop */}
+            <button
+                onClick={handleBuyBonus}
+                disabled={isGameLocked || currentBalance < Math.round(bet * 100)}
+                className={`
+                    w-20 h-20 rounded-full font-bold text-xs transition-all shadow-xl border-2 border-[#17212b]
+                    flex flex-col items-center justify-center gap-1 group relative overflow-hidden
+                    ${isGameLocked || currentBalance < Math.round(bet * 100)
+                       ? 'bg-gray-700 text-gray-500 grayscale' 
+                       : 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white hover:shadow-[0_0_30px_#facc15] hover:scale-105 active:scale-95'
+                    }
+                `}
+            >
+                <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Zap size={24} fill="currentColor" className="drop-shadow-sm" />
+                <div className="flex flex-col items-center leading-none">
+                    <span className="font-black text-sm">BUY</span>
+                    <span className="text-[10px] opacity-90">{Math.round(bet * 100)}</span>
+                </div>
+            </button>
+
+            {/* Spin Button */}
+            <button
+               onClick={handleSpin}
+               disabled={isGameLocked}
+               className={`
+                 w-24 h-24 rounded-full font-black text-xl tracking-wider transition-all shadow-[0_0_30px_rgba(0,0,0,0.5)] border-4 border-[#17212b]
+                 flex items-center justify-center group relative overflow-hidden
+                 ${isGameLocked 
+                    ? 'bg-gray-700 text-gray-500 grayscale' 
+                    : 'bg-gradient-to-br from-blue-400 to-blue-600 text-white hover:shadow-[0_0_50px_#5288c1] hover:scale-105 active:scale-95'
+                 }
+               `}
+             >
+                 <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                 {gameState === GameState.SPINNING ? (
+                     <Loader2 className="animate-spin" size={32} />
+                 ) : (
+                     <span className="group-hover:animate-pulse">SPIN</span>
+                 )}
+            </button>
+            
+            {/* Auto/Max Buttons (Visual only for now) */}
+            <div className="glass-panel rounded-full p-2 flex items-center gap-2 px-4 shadow-2xl">
+                 <button className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                     <Settings size={18} />
+                 </button>
+                 <button 
+                    onClick={() => setShowInfo(true)}
+                    className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                 >
+                     <Info size={18} />
+                 </button>
+            </div>
+       </div>
+
+    </div>
+  );
+}
