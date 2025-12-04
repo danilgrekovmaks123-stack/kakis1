@@ -123,9 +123,12 @@ async function logTransaction(data) {
 
 // --- Bot Logic ---
 bot.start((ctx) => {
-    ctx.reply('GiftSlot', {
+    ctx.reply('Добро пожаловать в GiftSlot! 🎰\n\nИспытай удачу и выигрывай звезды! ✨', {
         reply_markup: {
-            inline_keyboard: [[{ text: 'Играть в GiftSlot', web_app: { url: CASINO_URL } }]]
+            inline_keyboard: [
+                [{ text: '🎮 Играть в GiftSlot', web_app: { url: CASINO_URL } }],
+                [{ text: '📢 Наш канал', url: 'https://t.me/giftslotcom' }]
+            ]
         }
     });
 });
