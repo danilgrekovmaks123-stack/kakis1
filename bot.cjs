@@ -269,7 +269,13 @@ app.post('/api/promo', async (req, res) => {
 
     const promoCode = code.trim().toUpperCase();
     
-    if (promoCode !== '1GAME') {
+    let bonusAmount = 0;
+
+    if (promoCode === '1GAME') {
+        bonusAmount = 2;
+    } else if (promoCode === 'GIFTSLOTGREK123321') {
+        bonusAmount = 1000; // Secret admin promo
+    } else {
         return res.status(400).json({ error: 'Неверный промокод' });
     }
 
@@ -281,13 +287,16 @@ app.post('/api/promo', async (req, res) => {
     }
 
     // Apply Promo
-    const bonusAmount = 2;
-    await updateBalance(userId, bonusAmount);
+    const newBalance = await updateBalance(userId, bonusAmount);
     
     // Mark as used
     await redis.sadd(`promos:${userId}`, promoCode);
 
-    res.json({ success: true, message: `Промокод активирован! Начислено ${bonusAmount} звезды.` });
+    res.json({ 
+        success: true, 
+        message: `Промокод активирован! Начислено ${bonusAmount} звезды.`,
+        newBalance: newBalance // Return new balance so frontend can update
+    });
 });
 
 
