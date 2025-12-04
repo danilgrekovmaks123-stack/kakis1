@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Wallet, Star, CreditCard, Check } from 'lucide-react';
+import { X, Wallet, Star, CreditCard, Check, Gift } from 'lucide-react';
 
 interface DepositModalProps {
   isOpen: boolean;
@@ -19,19 +19,23 @@ const WITHDRAW_PRESETS = [500, 1000, 2500, 5000, 10000];
 
 export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, currentCurrency }: DepositModalProps) {
   const [amount, setAmount] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'deposit' | 'withdrawal'>('deposit');
+  const [promoCode, setPromoCode] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'deposit' | 'withdrawal' | 'promo'>('deposit');
   // Force STARS as the only currency
   const activeCurrency = 'STARS';
   const [isSuccess, setIsSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   // Reset state when opening
   React.useEffect(() => {
-      if (isOpen) {
-          setAmount('');
-          setIsSuccess(false);
-          setActiveTab('deposit');
-      }
+    if (isOpen) {
+        setAmount('');
+        setPromoCode('');
+        setIsSuccess(false);
+        setActiveTab('deposit');
+        setIsLoading(false);
+    }
   }, [isOpen]);
 
   const handleDeposit = async () => {
@@ -60,9 +64,46 @@ export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, c
                   onClose();
                   setIsSuccess(false);
               }, 2500);
-          } else {
-              // Handle error visual (optional)
           }
+      }
+  };
+
+  const handlePromo = async () => {
+      if (!promoCode) return;
+      setIsLoading(true);
+      
+      // Get Telegram User ID
+      const telegram = (window as any).Telegram?.WebApp;
+      const userId = telegram?.initDataUnsafe?.user?.id;
+
+      if (!userId) {
+          alert("Ошибка: не удалось определить пользователя");
+          setIsLoading(false);
+          return;
+      }
+
+      try {
+          const res = await fetch('/api/promo', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, code: promoCode })
+          });
+          const data = await res.json();
+          
+          if (data.success) {
+               setSuccessMessage(data.message);
+               setIsSuccess(true);
+               // Reload page or trigger balance update (simple way: reload after short delay)
+               setTimeout(() => {
+                   window.location.reload();
+               }, 2000);
+          } else {
+               alert(data.error || 'Ошибка активации');
+          }
+      } catch (e) {
+          alert('Ошибка сети');
+      } finally {
+          setIsLoading(false);
       }
   };
 
@@ -113,7 +154,7 @@ export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, c
           </div>
 
           {/* Tabs */}
-          <div className="grid grid-cols-2 p-2 gap-2 bg-[#1c2533]">
+          <div className="grid grid-cols-3 p-2 gap-2 bg-[#1c2533]">
               <button
                   onClick={() => setActiveTab('deposit')}
                   className={`py-3 rounded-xl font-bold text-sm transition-all ${
@@ -134,12 +175,22 @@ export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, c
               >
                   Вывод
               </button>
+              <button
+                  onClick={() => setActiveTab('promo')}
+                  className={`py-3 rounded-xl font-bold text-sm transition-all ${
+                      activeTab === 'promo' 
+                      ? 'bg-[#2c3847] text-white shadow-lg' 
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+              >
+                  Промокод
+              </button>
           </div>
 
           {/* Content */}
           <div className="p-6 space-y-6">
             
-            {activeTab === 'deposit' ? (
+            {activeTab === 'deposit' && (
                 <>
                     {/* Presets */}
                     <div className="grid grid-cols-3 gap-2">
@@ -185,7 +236,9 @@ export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, c
                         Оплатить {amount ? `${amount} ${activeCurrency}` : ''}
                     </button>
                 </>
-            ) : (
+            )}
+
+            {activeTab === 'withdrawal' && (
                 <>
                     {/* Withdraw Presets */}
                     <div className="grid grid-cols-3 gap-2">
@@ -235,6 +288,41 @@ export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, c
                         Вывести {amount ? `${amount} STARS` : ''}
                     </button>
                 </>
+            )}
+
+            {activeTab === 'promo' && (
+                <div className="flex flex-col items-center justify-center space-y-6 py-4">
+                    <div className="w-24 h-24 rounded-full bg-pink-500/20 flex items-center justify-center mb-2">
+                        <Gift size={48} className="text-pink-400" />
+                    </div>
+                    
+                    <div className="text-center">
+                        <h3 className="text-lg font-bold text-white mb-2">Активация промокода</h3>
+                        <p className="text-gray-400 text-sm">Введите промокод для получения бонуса</p>
+                    </div>
+
+                    <div className="w-full">
+                        <input
+                            type="text"
+                            value={promoCode}
+                            onChange={(e) => setPromoCode(e.target.value)}
+                            placeholder="Введите промокод"
+                            className="w-full bg-black/20 border border-white/10 rounded-xl py-4 px-4 text-center text-white placeholder-gray-500 focus:outline-none focus:border-pink-500 transition-colors font-mono text-lg uppercase tracking-widest"
+                        />
+                    </div>
+
+                    <button
+                        onClick={handlePromo}
+                        disabled={!promoCode || isLoading}
+                        className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all ${
+                            !promoCode || isLoading
+                            ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                            : 'bg-pink-500 hover:bg-pink-600 text-white shadow-pink-500/25'
+                        }`}
+                    >
+                        {isLoading ? 'Активация...' : 'Активировать'}
+                    </button>
+                </div>
             )}
 
           </div>

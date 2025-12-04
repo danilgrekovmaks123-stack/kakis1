@@ -42,6 +42,7 @@ const bot = new Telegraf(token);
 const PORT = process.env.PORT || 3002;
 const DB_FILE = 'transactions.json';
 const BALANCES_FILE = 'balances.json';
+const USED_PROMOS_FILE = 'used_promos.json';
 
 app.use(cors());
 app.use(express.json());
@@ -75,6 +76,26 @@ function updateBalance(userId, delta) {
     balances[userId] = Number((current + delta).toFixed(2));
     saveBalances(balances);
     return balances[userId];
+}
+
+// --- Promo Code Helper ---
+function getUsedPromos() {
+    try {
+        if (fs.existsSync(USED_PROMOS_FILE)) {
+            return JSON.parse(fs.readFileSync(USED_PROMOS_FILE, 'utf8'));
+        }
+    } catch (e) { console.error('Error reading used promos:', e); }
+    return {};
+}
+
+function saveUsedPromos(data) {
+    try {
+        fs.writeFileSync(USED_PROMOS_FILE, JSON.stringify(data, null, 2));
+        return true;
+    } catch (e) {
+        console.error('Error writing used promos:', e);
+        return false;
+    }
 }
 
 // --- Database Helper ---
@@ -198,36 +219,69 @@ app.post('/api/withdraw', async (req, res) => {
     // Log withdrawal request
     logTransaction({
         id: `withdraw_${userId}_${Date.now()}`,
-        userId,
-        username,
-        amount: -amount,
-        currency: 'XTR',
-        type: 'withdrawal_request'
+        userId: userId,
+        username: username,
+        amount: amount,
+        type: 'withdrawal',
+        status: 'pending'
     });
 
-    // Notify Admin
-    if (ADMIN_ID) {
-        try {
+    // Send Request to Admin
+    try {
+        if (ADMIN_ID) {
             await bot.telegram.sendMessage(ADMIN_ID, 
-                `💸 Новая заявка на вывод\nUser: @${username} (ID: ${userId})\nAmount: ${amount} Stars`, 
+                `💸 Запрос на вывод!\nUser: ${username} (ID: ${userId})\nAmount: ${amount} Stars\nBalance left: ${newBalance}`, 
                 {
                     reply_markup: {
                         inline_keyboard: [
                             [
-                                { text: '❌ Отклонить', callback_data: `decline_${userId}_${amount}` },
-                                { text: '✅ Подтвердить', callback_data: `approve_${userId}_${amount}` }
+                                { text: '✅ Одобрить', callback_data: `approve_${userId}_${amount}` },
+                                { text: '❌ Отклонить', callback_data: `decline_${userId}_${amount}` }
                             ]
                         ]
                     }
                 }
             );
-        } catch (e) {
-            console.error('Failed to notify admin', e);
-            // In a real app, might want to rollback transaction here if critical
         }
+        res.json({ success: true, newBalance });
+    } catch (e) {
+        console.error('Failed to notify admin:', e);
+        // Refund on error
+        updateBalance(userId, amount);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.post('/api/promo', async (req, res) => {
+    const { userId, code } = req.body;
+    
+    if (!userId || !code) {
+        return res.status(400).json({ error: 'Invalid request' });
     }
 
-    res.json({ success: true, newBalance });
+    const promoCode = code.trim().toUpperCase();
+    
+    if (promoCode !== '1GAME') {
+        return res.status(400).json({ error: 'Неверный промокод' });
+    }
+
+    const usedPromos = getUsedPromos();
+    const userUsedPromos = usedPromos[userId] || [];
+
+    if (userUsedPromos.includes(promoCode)) {
+        return res.status(400).json({ error: 'Вы уже использовали этот промокод' });
+    }
+
+    // Apply Promo
+    const bonusAmount = 2;
+    updateBalance(userId, bonusAmount);
+    
+    // Mark as used
+    userUsedPromos.push(promoCode);
+    usedPromos[userId] = userUsedPromos;
+    saveUsedPromos(usedPromos);
+
+    res.json({ success: true, message: `Промокод активирован! Начислено ${bonusAmount} звезды.` });
 });
 
 app.get('/api/balance/:userId', (req, res) => {
