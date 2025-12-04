@@ -289,19 +289,24 @@ app.post('/api/promo', async (req, res) => {
         }
     }
 
-    // Apply Promo
-    const newBalance = await updateBalance(userId, bonusAmount);
-    
-    // Mark as used (only for non-infinite codes)
-    if (!isInfinite) {
-        await redis.sadd(`promos:${userId}`, promoCode);
-    }
+    try {
+        // Apply Promo
+        const newBalance = await updateBalance(userId, bonusAmount);
+        
+        // Mark as used (only for non-infinite codes)
+        if (!isInfinite) {
+            await redis.sadd(`promos:${userId}`, promoCode);
+        }
 
-    res.json({ 
-        success: true, 
-        message: `Промокод активирован! Начислено ${bonusAmount} звезды.`,
-        newBalance: newBalance // Return new balance so frontend can update
-    });
+        res.json({ 
+            success: true, 
+            message: `Промокод активирован! Начислено ${bonusAmount} звезды.`,
+            newBalance: newBalance // Return new balance so frontend can update
+        });
+    } catch (e) {
+        console.error("Promo Error:", e);
+        res.status(500).json({ error: "Ошибка начисления бонуса" });
+    }
 });
 
 

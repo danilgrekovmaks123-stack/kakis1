@@ -83,14 +83,16 @@ export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, c
       }
 
       try {
-          const res = await fetch('/api/promo', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId, code: promoCode })
-          });
-          const data = await res.json();
-          
-          if (data.success) {
+           console.log("Sending promo request:", { userId, code: promoCode });
+           const res = await fetch('/api/promo', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ userId, code: promoCode })
+           });
+           const data = await res.json();
+           console.log("Promo response:", data);
+           
+           if (data.success) {
                 setSuccessMessage(data.message);
                 setIsSuccess(true);
                 
