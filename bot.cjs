@@ -42,7 +42,6 @@ const bot = new Telegraf(token);
 const PORT = process.env.PORT || 3002;
 const DB_FILE = 'transactions.json';
 const BALANCES_FILE = 'balances.json';
-const PROMO_FILE = 'promocodes.json';
 
 app.use(cors());
 app.use(express.json());
@@ -57,23 +56,6 @@ function getBalances() {
         }
     } catch (e) { console.error('Error reading balances:', e); }
     return {};
-}
-
-function getUsedPromos() {
-    try {
-        if (fs.existsSync(PROMO_FILE)) {
-            return JSON.parse(fs.readFileSync(PROMO_FILE, 'utf8'));
-        }
-    } catch (e) { console.error('Error reading promos:', e); }
-    return {};
-}
-
-function saveUsedPromos(promos) {
-    try {
-        fs.writeFileSync(PROMO_FILE, JSON.stringify(promos, null, 2));
-        return true;
-    } catch (e) { console.error('Error writing promos:', e); }
-    return false;
 }
 
 function saveBalances(balances) {
@@ -121,67 +103,11 @@ function logTransaction(data) {
 
 // --- Bot Logic ---
 bot.start((ctx) => {
-    ctx.reply('🎰 Добро пожаловать в GiftSlot! 🎰\n\nИспытай удачу и выигрывай звезды!', {
+    ctx.reply('GiftSlot', {
         reply_markup: {
-            inline_keyboard: [
-                [{ text: '🎮 Играть в GiftSlot', web_app: { url: CASINO_URL } }],
-                [
-                    { text: '💎 Пополнить', callback_data: 'deposit_info' },
-                    { text: '💸 Вывести', callback_data: 'withdraw_info' }
-                ],
-                [{ text: '🎁 Промокод', callback_data: 'promo_dialog' }]
-            ]
+            inline_keyboard: [[{ text: 'Играть в GiftSlot', web_app: { url: CASINO_URL } }]]
         }
     });
-});
-
-bot.action('deposit_info', (ctx) => {
-    ctx.reply('💎 <b>Пополнение баланса</b>\n\nЧтобы пополнить баланс, просто откройте игру и нажмите на иконку "Кошелек" или "Баланс" внутри приложения.', { parse_mode: 'HTML' });
-});
-
-bot.action('withdraw_info', (ctx) => {
-    ctx.reply('💸 <b>Вывод средств</b>\n\nМинимальная сумма вывода: 500 звезд.\nВывод осуществляется через интерфейс игры в разделе "Кошелек".', { parse_mode: 'HTML' });
-});
-
-bot.action('promo_dialog', async (ctx) => {
-    await ctx.reply('🎁 Введите ваш промокод ниже:', { reply_markup: { force_reply: true } });
-});
-
-// Handle Promo Code Input
-bot.on('text', async (ctx) => {
-    // Check if this is a reply to the promo prompt (optional check, or just check all text)
-    const text = ctx.message.text.trim();
-    const userId = ctx.from.id;
-
-    if (text === '1GAME') {
-        const usedPromos = getUsedPromos();
-        
-        // Initialize user's promo record if not exists
-        if (!usedPromos[userId]) usedPromos[userId] = [];
-        
-        if (usedPromos[userId].includes('1GAME')) {
-            return ctx.reply('❌ Вы уже использовали этот промокод!');
-        }
-
-        // Award bonus
-        updateBalance(userId, 1); // 1 Star
-        usedPromos[userId].push('1GAME');
-        saveUsedPromos(usedPromos);
-
-        logTransaction({
-            id: `promo_${userId}_${Date.now()}`,
-            userId,
-            username: ctx.from.username,
-            amount: 1,
-            currency: 'XTR',
-            type: 'promo_code',
-            promo: '1GAME'
-        });
-
-        return ctx.reply('✅ Промокод активирован! Вам начислена 1 звезда ⭐️');
-    }
-    
-    // If not a promo code, maybe ignore or handle other text
 });
 
 // Pre-checkout handler (Mandatory for payments)

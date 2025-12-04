@@ -62,10 +62,16 @@ export const useGameEngine = ({
     const activeBalance = currency === 'TON' ? balance : starsBalance;
     if (activeBalance < bet || gameState !== GameState.IDLE) return;
 
+    // Safety check for negative balance
+    if (activeBalance - bet < 0) {
+        console.error("Attempted spin with insufficient funds");
+        return;
+    }
+
     if (currency === 'TON') {
-        setBalance(prev => Number((prev - bet).toFixed(2)));
+        setBalance(prev => Math.max(0, Number((prev - bet).toFixed(2))));
     } else {
-        setStarsBalance(prev => Number((prev - bet).toFixed(2)));
+        setStarsBalance(prev => Math.max(0, Number((prev - bet).toFixed(2))));
         onTransaction?.(-bet);
     }
     startTransition(() => {

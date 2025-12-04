@@ -16,8 +16,7 @@ export enum SymbolType {
   
   // Special
   WILD = 'WILD',
-  COIN = 'COIN',
-  EMPTY = 'EMPTY'
+  COIN = 'COIN'
 }
 
 export enum CoinType {
