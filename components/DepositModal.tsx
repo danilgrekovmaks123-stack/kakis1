@@ -91,13 +91,15 @@ export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, c
           const data = await res.json();
           
           if (data.success) {
-               setSuccessMessage(data.message);
-               setIsSuccess(true);
-               // Reload page or trigger balance update (simple way: reload after short delay)
-               setTimeout(() => {
-                   window.location.reload();
-               }, 2000);
-          } else {
+                setSuccessMessage(data.message);
+                setIsSuccess(true);
+                
+                // Force update balance if parent provided a way, or reload
+                // Ideally we should have a context for this, but reload works reliably
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+           } else {
                alert(data.error || 'Ошибка активации');
           }
       } catch (e) {
