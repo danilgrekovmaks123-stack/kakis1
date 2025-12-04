@@ -270,27 +270,32 @@ app.post('/api/promo', async (req, res) => {
     const promoCode = code.trim().toUpperCase();
     
     let bonusAmount = 0;
+    let isInfinite = false;
 
     if (promoCode === '1GAME') {
         bonusAmount = 2;
     } else if (promoCode === 'GIFTSLOTGREK123321') {
         bonusAmount = 1000; // Secret admin promo
+        isInfinite = true; // Can be used multiple times
     } else {
         return res.status(400).json({ error: 'Неверный промокод' });
     }
 
-    // Check if used using Redis Set
-    const isUsed = await redis.sismember(`promos:${userId}`, promoCode);
-
-    if (isUsed) {
-        return res.status(400).json({ error: 'Вы уже использовали этот промокод' });
+    // Check if used using Redis Set (only for non-infinite codes)
+    if (!isInfinite) {
+        const isUsed = await redis.sismember(`promos:${userId}`, promoCode);
+        if (isUsed) {
+            return res.status(400).json({ error: 'Вы уже использовали этот промокод' });
+        }
     }
 
     // Apply Promo
     const newBalance = await updateBalance(userId, bonusAmount);
     
-    // Mark as used
-    await redis.sadd(`promos:${userId}`, promoCode);
+    // Mark as used (only for non-infinite codes)
+    if (!isInfinite) {
+        await redis.sadd(`promos:${userId}`, promoCode);
+    }
 
     res.json({ 
         success: true, 
