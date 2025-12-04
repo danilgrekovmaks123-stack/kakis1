@@ -3,11 +3,13 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const { Telegraf } = require('telegraf');
+const Redis = require('ioredis');
 
 // --- Configuration Loading ---
 let token = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '';
 let CASINO_URL = process.env.CASINO_URL || '';
-let ADMIN_ID = '7119839001';
+let ADMIN_ID = process.env.ADMIN_ID || '7119839001';
+let REDIS_URL = process.env.REDIS_URL || process.env.REDIS_PUBLIC_URL;
 
 // Skip .env loading in production (Railway sets env vars automatically)
 if ((!token || !CASINO_URL) && process.env.NODE_ENV !== 'production') {
@@ -40,85 +42,82 @@ if (!CASINO_URL) console.warn('WebApp URL is missing (CASINO_URL)');
 const app = express();
 const bot = new Telegraf(token);
 const PORT = process.env.PORT || 3002;
-const DB_FILE = 'transactions.json';
-const BALANCES_FILE = 'balances.json';
-const USED_PROMOS_FILE = 'used_promos.json';
+
+// --- Redis Setup ---
+let redis;
+if (REDIS_URL) {
+    console.log('✅ Connecting to Redis...');
+    redis = new Redis(REDIS_URL);
+    redis.on('error', (err) => console.error('Redis Error:', err));
+    redis.on('connect', () => console.log('✅ Connected to Redis'));
+} else {
+    console.warn('⚠️  REDIS_URL not found. Using IN-MEMORY storage (Data will be lost on restart!)');
+    // Minimal mock for local dev without Redis
+    const memoryStore = new Map();
+    redis = {
+        get: async (k) => memoryStore.get(k),
+        set: async (k, v) => memoryStore.set(k, v),
+        incrbyfloat: async (k, v) => {
+            const old = parseFloat(memoryStore.get(k) || '0');
+            const newVal = old + v;
+            memoryStore.set(k, newVal.toString());
+            return newVal.toString();
+        },
+        sadd: async (k, v) => {
+             const set = memoryStore.get(k) || new Set();
+             if (set.has(v)) return 0;
+             set.add(v);
+             memoryStore.set(k, set);
+             return 1;
+        },
+        sismember: async (k, v) => {
+             const set = memoryStore.get(k);
+             return set && set.has(v) ? 1 : 0;
+        },
+        lpush: async (k, v) => {
+             const list = memoryStore.get(k) || [];
+             list.unshift(v);
+             memoryStore.set(k, list);
+             return list.length;
+        }
+    };
+}
+
 
 app.use(cors());
 app.use(express.json());
 // Serve static files from the 'dist' directory (Vite build output)
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// --- Helper Functions ---
-function getBalances() {
-    try {
-        if (fs.existsSync(BALANCES_FILE)) {
-            return JSON.parse(fs.readFileSync(BALANCES_FILE, 'utf8'));
-        }
-    } catch (e) { console.error('Error reading balances:', e); }
-    return {};
+// --- Helper Functions (Redis Adapted) ---
+
+async function getBalance(userId) {
+    const bal = await redis.get(`balance:${userId}`);
+    return parseFloat(bal || '0');
 }
 
-function saveBalances(balances) {
-    try {
-        fs.writeFileSync(BALANCES_FILE, JSON.stringify(balances, null, 2));
-        return true;
-    } catch (e) {
-        console.error('Error writing balances:', e);
-        return false;
-    }
+async function updateBalance(userId, delta) {
+    // Redis incrbyfloat is atomic and perfect for this
+    const newBal = await redis.incrbyfloat(`balance:${userId}`, delta);
+    return parseFloat(newBal);
 }
 
-function updateBalance(userId, delta) {
-    const balances = getBalances();
-    const current = balances[userId] || 0;
-    // Ensure we don't get floating point weirdness
-    balances[userId] = Number((current + delta).toFixed(2));
-    saveBalances(balances);
-    return balances[userId];
-}
+// --- Database Helper (Redis Adapted) ---
 
-// --- Promo Code Helper ---
-function getUsedPromos() {
-    try {
-        if (fs.existsSync(USED_PROMOS_FILE)) {
-            return JSON.parse(fs.readFileSync(USED_PROMOS_FILE, 'utf8'));
-        }
-    } catch (e) { console.error('Error reading used promos:', e); }
-    return {};
-}
-
-function saveUsedPromos(data) {
-    try {
-        fs.writeFileSync(USED_PROMOS_FILE, JSON.stringify(data, null, 2));
-        return true;
-    } catch (e) {
-        console.error('Error writing used promos:', e);
-        return false;
-    }
-}
-
-// --- Database Helper ---
-
-function logTransaction(data) {
-    let transactions = [];
-    try {
-        if (fs.existsSync(DB_FILE)) {
-            transactions = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-        }
-    } catch (e) { console.error('Error reading DB:', e); }
-
+async function logTransaction(data) {
     // Idempotency check
-    if (transactions.some(t => t.id === data.id)) return false;
+    const exists = await redis.get(`tx:${data.id}`);
+    if (exists) return false;
 
-    transactions.push({
+    await redis.set(`tx:${data.id}`, '1');
+    
+    const txRecord = {
         timestamp: new Date().toISOString(),
         ...data
-    });
-
-    try {
-        fs.writeFileSync(DB_FILE, JSON.stringify(transactions, null, 2));
-    } catch (e) { console.error('Error writing DB:', e); }
+    };
+    
+    // Store history in a list
+    await redis.lpush(`history:${data.userId}`, JSON.stringify(txRecord));
     return true;
 }
 
@@ -155,12 +154,12 @@ bot.on('successful_payment', async (ctx) => {
         type: 'deposit'
     };
 
-    if (logTransaction(txData)) {
+    if (await logTransaction(txData)) {
         // Update persistent balance
-        const newBalance = updateBalance(userId, amount);
+        const newBalance = await updateBalance(userId, amount);
 
         // Notify User
-        await ctx.reply(`✅ Оплата прошла успешно! Получено ${amount} звезд. Баланс: ${newBalance}`);
+        await ctx.reply(`✅ Оплата прошла успешно! Получено ${amount} звезд. Баланс: ${newBalance.toFixed(2)}`);
         
         // Notify Admin
         if (ADMIN_ID) {
@@ -175,7 +174,6 @@ bot.action(/^approve_(\d+)_(\d+)$/, async (ctx) => {
     const amount = parseInt(ctx.match[2]);
     
     // Since we already deducted the balance, we just acknowledge.
-    // Optionally we can mark transaction as completed in DB if we tracked it there.
     
     await ctx.editMessageText(`✅ Вывод одобрен\nUser ID: ${userId}\nAmount: ${amount} Stars\nStatus: Completed`);
     await ctx.answerCbQuery('Withdrawal confirmed');
@@ -189,7 +187,7 @@ bot.action(/^decline_(\d+)_(\d+)$/, async (ctx) => {
     const amount = parseInt(ctx.match[2]);
     
     // Refund the user
-    updateBalance(userId, amount);
+    await updateBalance(userId, amount);
     
     await ctx.editMessageText(`❌ Вывод отклонен\nUser ID: ${userId}\nAmount: ${amount} Stars\nStatus: Refunded`);
     await ctx.answerCbQuery('Withdrawal declined');
@@ -199,6 +197,14 @@ bot.action(/^decline_(\d+)_(\d+)$/, async (ctx) => {
 });
 
 // --- API Endpoints for WebApp ---
+
+// Get Balance Endpoint
+app.get('/api/balance/:userId', async (req, res) => {
+    const userId = req.params.userId;
+    const balance = await getBalance(userId);
+    res.json({ balance });
+});
+
 app.post('/api/withdraw', async (req, res) => {
     const { userId, amount, username } = req.body;
     
@@ -206,18 +212,17 @@ app.post('/api/withdraw', async (req, res) => {
         return res.status(400).json({ error: 'Неверный запрос. Минимальный вывод 500 звезд.' });
     }
 
-    const balances = getBalances();
-    const currentBalance = balances[userId] || 0;
+    const currentBalance = await getBalance(userId);
 
     if (currentBalance < amount) {
         return res.status(400).json({ error: 'Недостаточно средств' });
     }
 
     // Deduct immediately
-    const newBalance = updateBalance(userId, -amount);
+    const newBalance = await updateBalance(userId, -amount);
 
     // Log withdrawal request
-    logTransaction({
+    await logTransaction({
         id: `withdraw_${userId}_${Date.now()}`,
         userId: userId,
         username: username,
@@ -247,7 +252,7 @@ app.post('/api/withdraw', async (req, res) => {
     } catch (e) {
         console.error('Failed to notify admin:', e);
         // Refund on error
-        updateBalance(userId, amount);
+        await updateBalance(userId, amount);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
@@ -265,41 +270,23 @@ app.post('/api/promo', async (req, res) => {
         return res.status(400).json({ error: 'Неверный промокод' });
     }
 
-    const usedPromos = getUsedPromos();
-    const userUsedPromos = usedPromos[userId] || [];
+    // Check if used using Redis Set
+    const isUsed = await redis.sismember(`promos:${userId}`, promoCode);
 
-    if (userUsedPromos.includes(promoCode)) {
+    if (isUsed) {
         return res.status(400).json({ error: 'Вы уже использовали этот промокод' });
     }
 
     // Apply Promo
     const bonusAmount = 2;
-    updateBalance(userId, bonusAmount);
+    await updateBalance(userId, bonusAmount);
     
     // Mark as used
-    userUsedPromos.push(promoCode);
-    usedPromos[userId] = userUsedPromos;
-    saveUsedPromos(usedPromos);
+    await redis.sadd(`promos:${userId}`, promoCode);
 
     res.json({ success: true, message: `Промокод активирован! Начислено ${bonusAmount} звезды.` });
 });
 
-app.get('/api/balance/:userId', (req, res) => {
-    const userId = parseInt(req.params.userId);
-    const balances = getBalances();
-    const balance = balances[userId] || 0;
-    res.json({ stars: balance });
-});
-
-app.post('/api/game/transaction', (req, res) => {
-    const { userId, amount } = req.body;
-    if (!userId || typeof amount !== 'number') {
-        return res.status(400).json({ error: 'Invalid params' });
-    }
-    // amount can be negative (bet) or positive (win)
-    const newBalance = updateBalance(userId, amount);
-    res.json({ balance: newBalance });
-});
 
 app.post('/api/create-invoice', async (req, res) => {
     const { amount, userId } = req.body;
@@ -332,117 +319,18 @@ app.post('/api/create-invoice', async (req, res) => {
     }
 });
 
-// --- Withdrawal Logic ---
-
-app.post('/api/withdraw', async (req, res) => {
-    const { userId, amount, username } = req.body;
-    
-    if (!userId || !amount || amount < 500) {
-        return res.status(400).json({ error: 'Invalid request. Minimum withdrawal is 500 Stars.' });
-    }
-
-    const balances = getBalances();
-    const currentBalance = balances[userId] || 0;
-
-    if (currentBalance < amount) {
-        return res.status(400).json({ error: 'Insufficient balance' });
-    }
-
-    // Deduct immediately
-    const newBalance = updateBalance(userId, -amount);
-
-    // Log withdrawal request
-    logTransaction({
-        id: `withdraw_${userId}_${Date.now()}`,
-        userId,
-        username,
-        amount: -amount,
-        currency: 'XTR',
-        type: 'withdrawal_request'
-    });
-
-    // Notify Admin
-    if (ADMIN_ID) {
-        try {
-            await bot.telegram.sendMessage(ADMIN_ID, 
-                `💸 <b>New Withdrawal Request</b>\n` +
-                `User: @${username} (ID: <code>${userId}</code>)\n` +
-                `Amount: <b>${amount} Stars</b>\n` +
-                `Balance remaining: ${newBalance}`, 
-                {
-                    parse_mode: 'HTML',
-                    reply_markup: {
-                        inline_keyboard: [
-                            [
-                                { text: '❌ Отклонить', callback_data: `decline_${userId}_${amount}` },
-                                { text: '✅ Подтвердить', callback_data: `approve_${userId}_${amount}` }
-                            ]
-                        ]
-                    }
-                }
-            );
-        } catch (e) {
-            console.error('Failed to notify admin', e);
-        }
-    }
-
-    res.json({ success: true, newBalance });
-});
-
-// Admin Actions
-bot.action(/^approve_(\d+)_(\d+)$/, async (ctx) => {
-    const userId = parseInt(ctx.match[1]);
-    const amount = parseInt(ctx.match[2]);
-    
-    await ctx.editMessageText(
-        `✅ <b>Withdrawal Approved</b>\n` +
-        `User ID: ${userId}\n` +
-        `Amount: ${amount} Stars\n` +
-        `Status: Completed`,
-        { parse_mode: 'HTML' }
-    );
-    await ctx.answerCbQuery('Withdrawal confirmed');
-    
-    // Notify user
-    bot.telegram.sendMessage(userId, `✅ Ваш вывод ${amount} звезд одобрен! Они скоро поступят на ваш счет.`).catch(() => {});
-});
-
-bot.action(/^decline_(\d+)_(\d+)$/, async (ctx) => {
-    const userId = parseInt(ctx.match[1]);
-    const amount = parseInt(ctx.match[2]);
-
-    // Refund the user
-    const newBalance = updateBalance(userId, amount);
-    
-    // Log refund
-    logTransaction({
-        id: `refund_${userId}_${Date.now()}`,
-        userId,
-        amount: amount,
-        currency: 'XTR',
-        type: 'withdrawal_refund'
-    });
-
-    await ctx.editMessageText(
-        `❌ <b>Withdrawal Declined</b>\n` +
-        `User ID: ${userId}\n` +
-        `Amount: ${amount} Stars\n` +
-        `Action: Refunded\n` +
-        `New Balance: ${newBalance}`,
-        { parse_mode: 'HTML' }
-    );
-    await ctx.answerCbQuery('Withdrawal declined and refunded');
-    
-    // Notify user
-    bot.telegram.sendMessage(userId, `❌ Ваш вывод ${amount} звезд был отклонен. Средства возвращены на баланс.`).catch(() => {});
-});
-
-// --- Start Servers ---
-bot.launch().then(() => console.log('Bot started'));
+// Start Server
 app.listen(PORT, () => {
     console.log(`API Server running on port ${PORT}`);
 });
 
-// Graceful stop
-process.once('SIGINT', () => { bot.stop('SIGINT'); });
-process.once('SIGTERM', () => { bot.stop('SIGTERM'); });
+// Start Bot
+bot.launch().then(() => {
+    console.log('Bot is running...');
+}).catch((err) => {
+    console.error('Bot launch failed:', err);
+});
+
+// Graceful Stop
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
