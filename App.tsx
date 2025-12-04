@@ -6,7 +6,8 @@ import SlotCell from './components/SlotCell';
 import BonusOverlay from './components/BonusOverlay';
 import InfoModal from './components/InfoModal';
 import DepositModal from './components/DepositModal';
-import { Loader2, Wallet, X, Volume2, Settings, Info, Zap, Star, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { Loader2, Wallet, X, Volume2, VolumeX, Settings, Info, Zap, Star, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useGameEngine } from './hooks/useGameEngine';
 
 // Configuration
@@ -24,10 +25,58 @@ export default function App() {
       if (tp.text_color) document.documentElement.style.setProperty('--tg-text', tp.text_color);
       if (tp.secondary_bg_color) document.documentElement.style.setProperty('--tg-secondary', tp.secondary_bg_color);
       if (tp.button_color) document.documentElement.style.setProperty('--tg-accent', tp.button_color);
+
+      const id = w.Telegram.WebApp.initDataUnsafe?.user?.id;
+      if (id) {
+          setUserId(id);
+          fetch(`/api/balance/${id}`)
+            .then(r => r.json())
+            .then(d => {
+                if (d.stars !== undefined) setStarsBalance(d.stars);
+            })
+            .catch(e => console.error('Failed to fetch balance', e));
+      }
     }
   }, []);
-  const [currency, setCurrency] = useState<'TON' | 'STARS'>('TON');
+  const [currency, setCurrency] = useState<'TON' | 'STARS'>('STARS');
   const [currentTheme, setCurrentTheme] = useState<ThemeId>('durov');
+  const [bgUrl, setBgUrl] = useState<string>("/fonsik 2.png");
+  const [bgReady, setBgReady] = useState<boolean>(true);
+  const [userId, setUserId] = useState<number | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
+
+  const handleWithdraw = async (amount: number) => {
+      if (!userId) return false;
+      try {
+          const tg = (window as any).Telegram?.WebApp;
+          const username = tg?.initDataUnsafe?.user?.username || 'Unknown';
+          
+          const resp = await fetch('/api/withdraw', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, amount, username })
+          });
+          
+          const data = await resp.json();
+          if (data.success) {
+              setStarsBalance(data.newBalance);
+              return true;
+          }
+          return false;
+      } catch (e) {
+          console.error('Withdraw error', e);
+          return false;
+      }
+  };
+
+  const handleTransaction = (amount: number) => {
+      if (!userId) return;
+      fetch('/api/game/transaction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, amount })
+      }).catch(e => console.error('Sync error', e));
+  };
   
   // Shared balances
   const [balance, setBalance] = useState(0);
@@ -37,11 +86,44 @@ export default function App() {
   const [showInfo, setShowInfo] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
 
-  const handleDeposit = (amount: number, currencyType: 'TON' | 'STARS') => {
+  const handleDeposit = async (amount: number, currencyType: 'TON' | 'STARS') => {
       if (currencyType === 'TON') {
-          setBalance(prev => prev + amount);
-      } else {
-          setStarsBalance(prev => prev + amount);
+          return false;
+      }
+
+      const tg = (window as any).Telegram?.WebApp;
+      const userId = tg?.initDataUnsafe?.user?.id;
+      
+      if (!tg || !userId) {
+          // If running in browser without Telegram, we can't process payment
+          return false;
+      }
+
+      try {
+          const resp = await fetch('/api/create-invoice', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ amount: Math.floor(amount), userId })
+          });
+          const data = await resp.json();
+          if (!data?.link) return false;
+
+          return await new Promise<boolean>((resolve) => {
+              const handler = (payload: any) => {
+                  tg.offEvent('invoiceClosed', handler);
+                  if (payload?.status === 'paid') {
+                      setStarsBalance(prev => prev + amount);
+                      resolve(true);
+                  } else {
+                      resolve(false);
+                  }
+              };
+              try { tg.onEvent('invoiceClosed', handler); } catch {}
+              try { tg.openInvoice(data.link, (status: string) => { /* fallback */ }); } catch {}
+          });
+      } catch (e) {
+          console.error(e);
+          return false;
       }
   };
 
@@ -54,7 +136,9 @@ export default function App() {
     bet,
     currency,
     isActive: currentTheme === 'durov',
-    theme: 'durov'
+    theme: 'durov',
+    onTransaction: handleTransaction,
+    isMuted
   });
 
   const flourEngine = useGameEngine({
@@ -65,7 +149,9 @@ export default function App() {
     bet,
     currency,
     isActive: currentTheme === 'flour',
-    theme: 'flour'
+    theme: 'flour',
+    onTransaction: handleTransaction,
+    isMuted
   });
 
   // Select active engine based on theme
@@ -105,6 +191,20 @@ export default function App() {
   const isGameLocked = gameState === GameState.SPINNING || gameState === GameState.BONUS_TRANSITION || gameState === GameState.BONUS_ACTIVE || gameState === GameState.BONUS_PAYOUT;
   const isBonus = gameState === GameState.BONUS_ACTIVE || gameState === GameState.BONUS_TRANSITION || gameState === GameState.BONUS_PAYOUT;
 
+  useEffect(() => {
+    const nextUrl = currentTheme === 'durov' ? "/fonsik 2.png" : "/fonflow.png";
+    const img = new Image();
+    img.src = nextUrl;
+    setBgReady(false);
+    img.decode().then(() => {
+      setBgUrl(nextUrl);
+      setBgReady(true);
+    }).catch(() => {
+      setBgUrl(nextUrl);
+      setBgReady(true);
+    });
+  }, [currentTheme]);
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row text-white font-sans overflow-hidden">
       
@@ -113,6 +213,7 @@ export default function App() {
         isOpen={showDeposit} 
         onClose={() => setShowDeposit(false)} 
         onDeposit={handleDeposit} 
+        onWithdraw={handleWithdraw}
         currentCurrency={currency} 
       />
 
@@ -127,7 +228,12 @@ export default function App() {
                 </div>
             </div>
             <div className="flex gap-2">
-                <button className="p-2 hover:bg-white/5 rounded-full"><Volume2 size={18} className="text-gray-400" /></button>
+                <button 
+                  className="p-2 hover:bg-white/5 rounded-full"
+                  onClick={() => setIsMuted(!isMuted)}
+                >
+                    {isMuted ? <VolumeX size={18} className="text-gray-400" /> : <Volume2 size={18} className="text-gray-400" />}
+                </button>
                 <button 
                   onClick={() => setShowInfo(true)}
                   className="p-2 hover:bg-white/5 rounded-full"
@@ -139,28 +245,13 @@ export default function App() {
 
         {/* Balance Card & Currency Switch */}
         <div className="p-4 flex flex-col gap-3">
-             {/* Currency Switcher */}
-             <div className="flex bg-black/20 p-1 rounded-xl">
-                 <button 
-                    onClick={() => !isGameLocked && setCurrency('TON')}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${currency === 'TON' ? 'bg-blue-500 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-                 >
-                    TON
-                 </button>
-                 <button 
-                    onClick={() => !isGameLocked && setCurrency('STARS')}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${currency === 'STARS' ? 'bg-yellow-500 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-                 >
-                    STARS
-                 </button>
-             </div>
-
+             {/* Currency Switcher Removed */}
             <div className={`${currentTheme === 'flour' ? 'bg-[#31572c] border border-white/10' : 'glass-panel'} p-4 rounded-2xl flex flex-col gap-1 relative overflow-hidden group`}>
                  <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
                      {currency === 'TON' ? <Wallet size={48} /> : <Star size={48} />}
                  </div>
                  <div className="flex justify-between items-start relative z-10">
-                    <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Total Balance</span>
+                    <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Общий баланс</span>
                     <button 
                         onClick={() => setShowDeposit(true)}
                         className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${currency === 'TON' ? 'bg-blue-500 hover:bg-blue-400' : 'bg-yellow-500 hover:bg-yellow-400'}`}
@@ -215,14 +306,17 @@ export default function App() {
         <div className="absolute inset-0 z-0">
              <AnimatePresence mode="popLayout">
                  <motion.div
-                    key={currentTheme}
+                    key={bgUrl}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.5 }}
                     className="absolute inset-0 bg-cover bg-center bg-no-repeat"
                     style={{
-                        backgroundImage: currentTheme === 'durov' ? "url('/fonsik 2.png')" : (currentTheme === 'flour' ? "url('/fonflow.png')" : 'none')
+                        backgroundImage: bgReady ? `url('${bgUrl}')` : undefined,
+                        willChange: 'opacity, transform',
+                        backfaceVisibility: 'hidden',
+                        contain: 'paint'
                     }}
                  />
              </AnimatePresence>
@@ -234,6 +328,7 @@ export default function App() {
         </div>
 
         {/* Game Container */}
+        <ErrorBoundary>
         <AnimatePresence mode="wait">
         <motion.div 
             key={currentTheme}
@@ -242,22 +337,23 @@ export default function App() {
             exit={{ x: -300, opacity: 0, rotateY: -90 }}
             transition={{ duration: 0.5, type: "spring", damping: 20, stiffness: 100 }}
             className="relative z-10 w-full max-w-lg md:max-w-2xl"
+            style={{ willChange: 'transform', backfaceVisibility: 'hidden' }}
         >
           
           {/* Header Info (Bet/Win) */}
           <div className="flex justify-between items-center mb-4 px-2">
              <div className="glass-panel px-4 py-1.5 rounded-full flex items-center gap-2">
-                 <span className="text-xs text-gray-400 uppercase">Bet</span>
+                 <span className="text-xs text-gray-400 uppercase">Ставка</span>
                  <span className="font-bold text-white">{bet}</span>
              </div>
              <div className="glass-panel px-4 py-1.5 rounded-full flex items-center gap-2">
-                 <span className="text-xs text-gray-400 uppercase">Win</span>
+                 <span className="text-xs text-gray-400 uppercase">Выигрыш</span>
                  <span className="font-bold text-yellow-400">{winData ? winData.winAmount.toFixed(2) : '0.00'}</span>
              </div>
           </div>
 
           {/* THE GRID */}
-          <div className={`relative p-3 rounded-3xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden ${currentTheme === 'flour' ? 'bg-[#52612D]' : 'bg-[#17212b]'}`}>
+          <div className={`relative p-3 rounded-3xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden ${currentTheme === 'flour' ? 'bg-[#52612D]' : 'bg-[#17212b]'}`} style={{ contentVisibility: 'auto', contain: 'paint' }}>
              {/* Decorative Top Shine */}
              <div className="absolute top-0 left-10 right-10 h-[1px] bg-gradient-to-r from-transparent via-blue-400/50 to-transparent" />
 
@@ -290,7 +386,7 @@ export default function App() {
                 })}
              </AnimatePresence>
 
-             <div className="grid grid-cols-5 gap-2 md:gap-3">
+            <div className="grid grid-cols-5 gap-2 md:gap-3" style={{ willChange: 'transform', backfaceVisibility: 'hidden' }}>
                {/* Columns */}
                {Array.from({ length: COLS }).map((_, cIndex) => (
                    <div key={cIndex} className="flex flex-col gap-2 md:gap-3">
@@ -332,7 +428,7 @@ export default function App() {
                 >
                     <div className="bg-gradient-to-br from-yellow-500 to-orange-600 p-[2px] rounded-2xl shadow-[0_0_50px_rgba(255,165,0,0.6)]">
                         <div className="bg-[#17212b] px-10 py-6 rounded-2xl flex flex-col items-center border border-white/10">
-                            <span className="text-yellow-400 font-black uppercase text-2xl tracking-widest drop-shadow-md">Big Win</span>
+                            <span className="text-yellow-400 font-black uppercase text-2xl tracking-widest drop-shadow-md">Большой Выигрыш</span>
                             <span className="text-5xl font-bold text-white mt-2 drop-shadow-lg tracking-tighter">{winData?.winAmount.toFixed(2)}</span>
                         </div>
                     </div>
@@ -352,7 +448,7 @@ export default function App() {
                          initial={{ scale: 0 }} animate={{ scale: 1 }} 
                          className="text-2xl font-bold text-white mb-2"
                        >
-                           Bonus Collected
+                           Бонус Собран
                        </motion.div>
                        <motion.div 
                          initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} delay={0.2}
@@ -368,6 +464,7 @@ export default function App() {
           </div>
         </motion.div>
         </AnimatePresence>
+        </ErrorBoundary>
       </main>
 
       {/* Controls Bar (Mobile Bottom / Desktop Bottom Sticky) */}
@@ -416,7 +513,7 @@ export default function App() {
                  </div>
                  
                  {/* Buy Bonus Mobile */}
-                 <button
+                 {/* <button
                     onClick={handleBuyBonus}
                     disabled={isGameLocked || currentBalance < Math.round(bet * 100)}
                     className={`
@@ -429,7 +526,7 @@ export default function App() {
                  >
                     <Zap size={16} fill="currentColor" />
                     <span className="text-[10px] font-bold leading-none mt-0.5">{Math.round(bet * 100)}</span>
-                 </button>
+                 </button> */}
 
              <button
                onClick={handleSpin}
@@ -444,9 +541,9 @@ export default function App() {
                `}
              >
                  {isGameLocked ? (
-                     gameState === GameState.SPINNING ? <Loader2 className="animate-spin" /> : <span>Wait...</span>
+                     gameState === GameState.SPINNING ? <Loader2 className="animate-spin" /> : <span>Ждите...</span>
                  ) : (
-                     'SPIN'
+                     'КРУТИТЬ'
                  )}
              </button>
          </div>
@@ -456,7 +553,7 @@ export default function App() {
        <div className="hidden md:flex absolute bottom-8 left-[62%] -translate-x-1/2 z-40 gap-6 items-center">
             {/* Bet Control */}
             <div className="glass-panel rounded-full p-2 flex items-center gap-4 px-6 shadow-2xl transform hover:scale-105 transition-transform">
-                <span className="text-gray-400 text-xs font-bold uppercase">Bet Amount</span>
+                <span className="text-gray-400 text-xs font-bold uppercase">Сумма ставки</span>
                 <div className="flex items-center gap-3">
                     <button onClick={decreaseBet} disabled={isGameLocked || bet <= currentBetValues[0]} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                         -
@@ -469,7 +566,7 @@ export default function App() {
             </div>
 
             {/* Buy Bonus Button Desktop */}
-            <button
+            {/* <button
                 onClick={handleBuyBonus}
                 disabled={isGameLocked || currentBalance < Math.round(bet * 100)}
                 className={`
@@ -484,10 +581,10 @@ export default function App() {
                 <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <Zap size={24} fill="currentColor" className="drop-shadow-sm" />
                 <div className="flex flex-col items-center leading-none">
-                    <span className="font-black text-sm">BUY</span>
+                    <span className="font-black text-sm">КУПИТЬ</span>
                     <span className="text-[10px] opacity-90">{Math.round(bet * 100)}</span>
                 </div>
-            </button>
+            </button> */}
 
             {/* Spin Button */}
             <button
@@ -506,7 +603,7 @@ export default function App() {
                  {gameState === GameState.SPINNING ? (
                      <Loader2 className="animate-spin" size={32} />
                  ) : (
-                     <span className="group-hover:animate-pulse">SPIN</span>
+                     <span className="group-hover:animate-pulse">КРУТИТЬ</span>
                  )}
             </button>
             

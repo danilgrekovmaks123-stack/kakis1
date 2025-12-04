@@ -1,0 +1,56 @@
+[
+  {
+    "timestamp": "2025-12-02T19:38:27.034Z",
+    "id": "1103591534_20",
+    "userId": 1103591534,
+    "username": "babasexsuuu",
+    "amount": 1,
+    "currency": "XTR",
+    "payload": "deposit_1103591534_1764700957148"
+  },
+  {
+    "timestamp": "2025-12-02T19:48:35.921Z",
+    "id": "8272421289_2",
+    "userId": 8272421289,
+    "username": "ssssssssaik",
+    "amount": 1,
+    "currency": "XTR",
+    "payload": "deposit_8272421289_1764704331083"
+  },
+  {
+    "timestamp": "2025-12-02T20:03:29.226Z",
+    "id": "1103591534_21",
+    "userId": 1103591534,
+    "username": "babasexsuuu",
+    "amount": 1,
+    "currency": "XTR",
+    "payload": "deposit_1103591534_1764705807670"
+  },
+  {
+    "timestamp": "2025-12-03T15:35:24.329Z",
+    "id": "1103591534_22",
+    "userId": 1103591534,
+    "username": "babasexsuuu",
+    "amount": 1,
+    "currency": "XTR",
+    "payload": "deposit_1103591534_1764763267948"
+  },
+  {
+    "timestamp": "2025-12-04T16:37:06.817Z",
+    "id": "debug_1103591534_1764866226816",
+    "userId": 1103591534,
+    "username": "debug",
+    "amount": 500,
+    "currency": "XTR",
+    "type": "debug_deposit"
+  },
+  {
+    "timestamp": "2025-12-04T16:37:16.591Z",
+    "id": "withdraw_1103591534_1764866236591",
+    "userId": 1103591534,
+    "username": "babasexsuuu",
+    "amount": -500,
+    "currency": "XTR",
+    "type": "withdrawal_request"
+  }
+]

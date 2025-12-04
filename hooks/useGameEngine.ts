@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, startTransition } from 'react';
 import { generateGrid, checkWin, countCoins, getRandomSymbol } from '../utils/gameLogic';
 import { SymbolData, SymbolType, CoinType, GameState, ROWS, COLS } from '../types';
 import { ThemeId } from '../constants';
@@ -16,6 +16,8 @@ interface UseGameEngineProps {
   currency: 'TON' | 'STARS';
   isActive: boolean; // To control sounds and updates if needed
   theme?: ThemeId;
+  onTransaction?: (amount: number) => void;
+  isMuted?: boolean;
 }
 
 export const useGameEngine = ({
@@ -26,7 +28,9 @@ export const useGameEngine = ({
   bet,
   currency,
   isActive,
-  theme = 'durov'
+  theme = 'durov',
+  onTransaction,
+  isMuted = false
 }: UseGameEngineProps) => {
   const [grid, setGrid] = useState<SymbolData[][]>(generateGrid(ROWS, COLS, false, 10));
   const [gameState, setGameState] = useState<GameState>(GameState.IDLE);
@@ -62,13 +66,16 @@ export const useGameEngine = ({
         setBalance(prev => Number((prev - bet).toFixed(2)));
     } else {
         setStarsBalance(prev => Number((prev - bet).toFixed(2)));
+        onTransaction?.(-bet);
     }
-    setGameState(GameState.SPINNING);
-    setWinData(null);
-    setBonusTotal(0);
-    setSpinningColumns([true, true, true, true, true]); // Start all reels
+    startTransition(() => {
+        setGameState(GameState.SPINNING);
+        setWinData(null);
+        setBonusTotal(0);
+        setSpinningColumns([true, true, true, true, true]);
+    })
 
-    if (isActive && spinSoundRef.current) {
+    if (isActive && spinSoundRef.current && !isMuted) {
         spinSoundRef.current.currentTime = 0;
         spinSoundRef.current.play().catch(e => console.error("Audio play failed", e));
     }
@@ -86,19 +93,20 @@ export const useGameEngine = ({
                 // Stop specific reel: We update the grid state for just this column
                 const reelIndex = currentReel; // capture for closure
                 
-                setGrid(prevGrid => {
-                    const nextGrid = [...prevGrid];
-                    for(let r=0; r<ROWS; r++) {
-                        nextGrid[r] = [...nextGrid[r]]; // Copy row
-                        nextGrid[r][reelIndex] = newGrid[r][reelIndex]; // Update cell in this column
-                    }
-                    return nextGrid;
-                });
-
-                setSpinningColumns(prev => {
-                    const next = [...prev];
-                    next[reelIndex] = false;
-                    return next;
+                startTransition(() => {
+                    setGrid(prevGrid => {
+                        const nextGrid = [...prevGrid];
+                        for(let r=0; r<ROWS; r++) {
+                            nextGrid[r] = [...nextGrid[r]];
+                            nextGrid[r][reelIndex] = newGrid[r][reelIndex];
+                        }
+                        return nextGrid;
+                    });
+                    setSpinningColumns(prev => {
+                        const next = [...prev];
+                        next[reelIndex] = false;
+                        return next;
+                    });
                 });
 
                 currentReel++;
@@ -121,15 +129,18 @@ export const useGameEngine = ({
          const result = checkWin(finalGrid, bet, theme);
          
          if (result.winAmount > 0) {
-             setWinData(result);
-             if (currency === 'TON') {
-                 setBalance(prev => Number((prev + result.winAmount).toFixed(2)));
-             } else {
-                 setStarsBalance(prev => Number((prev + result.winAmount).toFixed(2)));
-             }
-             setGameState(GameState.WIN_ANIMATION);
+            setWinData(result);
+            if (currency === 'TON') {
+                setBalance(prev => Number((prev + result.winAmount).toFixed(2)));
+            } else {
+                setStarsBalance(prev => Number((prev + result.winAmount).toFixed(2)));
+                onTransaction?.(result.winAmount);
+            }
+            startTransition(() => {
+                setGameState(GameState.WIN_ANIMATION);
+            });
 
-             if (isActive && winSoundRef.current) {
+             if (isActive && winSoundRef.current && !isMuted) {
                  winSoundRef.current.currentTime = 0;
                  winSoundRef.current.play().catch(e => console.error("Win audio play failed", e));
              }
@@ -146,10 +157,12 @@ export const useGameEngine = ({
           if (cell.type === SymbolType.COIN) {
               return { ...cell, isLocked: true };
           }
-          return { ...cell, type: SymbolType.PLANE, id: Math.random().toString() }; // Empty
+          return { ...cell, type: SymbolType.EMPTY, id: Math.random().toString() }; // Empty
       }));
 
-      setGrid(bonusGrid);
+      startTransition(() => {
+          setGrid(bonusGrid);
+      });
       
       // Calculate initial bonus total from triggering coins
       let initialTotal = 0;
@@ -159,10 +172,14 @@ export const useGameEngine = ({
       setBonusTotal(Math.round(initialTotal * 100) / 100);
 
       setBonusSpins(3);
-      setGameState(GameState.BONUS_TRANSITION);
+      startTransition(() => {
+          setGameState(GameState.BONUS_TRANSITION);
+      });
       
       setTimeout(() => {
-          setGameState(GameState.BONUS_ACTIVE);
+          startTransition(() => {
+              setGameState(GameState.BONUS_ACTIVE);
+          });
           playBonusTurn(bonusGrid, 3);
       }, 1500);
   };
@@ -174,11 +191,15 @@ export const useGameEngine = ({
       }
 
       // Start spinning animation for non-locked cells
-      setSpinningColumns([true, true, true, true, true]);
+      startTransition(() => {
+          setSpinningColumns([true, true, true, true, true]);
+      });
 
       // Visual delay for "Spinning" during bonus
       setTimeout(() => {
-          setSpinningColumns([false, false, false, false, false]); // Stop spinning
+          startTransition(() => {
+              setSpinningColumns([false, false, false, false, false]);
+          });
 
           // 1. Generate Next Grid (Raw)
           // Determine new symbols
@@ -219,7 +240,9 @@ export const useGameEngine = ({
           }
 
           // 3. Show Landing Grid immediately
-          setGrid(landingGrid);
+          startTransition(() => {
+              setGrid(landingGrid);
+          });
 
           // 4. Define Logic Execution
           const executeLogic = () => {
@@ -361,30 +384,40 @@ export const useGameEngine = ({
 
               // Trigger effects and update grid
               if (currentEffects.length > 0) {
-                  setBonusEffects(currentEffects);
+                  startTransition(() => {
+                      setBonusEffects(currentEffects);
+                  });
                   
                   // Clear effects after animation duration (1.5s)
-                  setTimeout(() => setBonusEffects([]), 1500);
+                  setTimeout(() => startTransition(() => setBonusEffects([])), 1500);
 
                   // Update grid values AFTER particles have arrived (1.4s)
                   setTimeout(() => {
-                      setGrid(finalGrid);
+                      startTransition(() => {
+                          setGrid(finalGrid);
+                      });
                       proceed();
                   }, 1400);
               } else {
-                  setGrid(finalGrid);
+                  startTransition(() => {
+                      setGrid(finalGrid);
+                  });
                   proceed();
               }
           };
 
           // Logic Branch: If special coins found, delay execution
           if (specialCoins.length > 0) {
-              setActiveSpecialCells(specialCoins); // Glow them
+              startTransition(() => {
+                  setActiveSpecialCells(specialCoins);
+              });
               
               // Wait for glow (1.2s)
               setTimeout(() => {
-                  setActiveSpecialCells([]); // Stop glow
-                  executeLogic(); // Run logic
+                  startTransition(() => {
+                      setActiveSpecialCells([]);
+                  });
+                  executeLogic();
               }, 1200);
           } else {
               executeLogic(); // Run immediately

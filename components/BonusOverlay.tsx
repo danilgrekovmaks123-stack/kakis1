@@ -10,7 +10,7 @@ const BonusOverlay: React.FC<BonusOverlayProps> = ({ spinsLeft, totalWin }) => {
   return (
     <div className="absolute top-0 left-0 w-full h-12 flex justify-between items-center px-4 bg-gradient-to-b from-black/80 to-transparent z-20 pointer-events-none">
       <div className="flex flex-col">
-         <span className="text-xs text-tg-hint uppercase font-bold">Respins</span>
+         <span className="text-xs text-tg-hint uppercase font-bold">Респины</span>
          <div className="flex gap-1">
             {[1, 2, 3].map(i => (
                 <motion.div 
@@ -23,7 +23,7 @@ const BonusOverlay: React.FC<BonusOverlayProps> = ({ spinsLeft, totalWin }) => {
       </div>
       
       <div className="flex flex-col items-end">
-          <span className="text-xs text-tg-hint uppercase font-bold">Bonus Win</span>
+          <span className="text-xs text-tg-hint uppercase font-bold">Бонусный Выигрыш</span>
           <span className="text-lg font-bold text-yellow-400 drop-shadow-sm">{totalWin.toFixed(2)}</span>
       </div>
     </div>

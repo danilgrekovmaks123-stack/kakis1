@@ -43,19 +43,19 @@ export const SYMBOL_CONFIG: Record<SymbolType, { color: string, icon?: React.Rea
     color: '#5cabeb', 
     imageUrl: '/dogtg.png', 
     label: 'DogTG', 
-    multiplier: 6.0 
+    multiplier: 10.0 
   },
   [SymbolType.LOCK]: { 
     color: '#879099', 
     imageUrl: '/knopka.png', 
     label: 'Knopka', 
-    multiplier: 10.0 
+    multiplier: 15.0 
   },
   [SymbolType.SHIELD]: { 
     color: '#51b26c', 
     imageUrl: '/futbolka.png', 
     label: 'Futbolka', 
-    multiplier: 1.0 
+    multiplier: 2.0 
   },
   
   // Mid
@@ -63,19 +63,19 @@ export const SYMBOL_CONFIG: Record<SymbolType, { color: string, icon?: React.Rea
     color: '#4cb4f7', 
     imageUrl: '/kepka.svg', 
     label: 'Kepka', 
-    multiplier: 1.5 
+    multiplier: 3.0 
   },
   [SymbolType.STAR]: { 
     color: '#9b51e0', 
     imageUrl: '/rukzak.svg', 
     label: 'Rukzak', 
-    multiplier: 2.0 
+    multiplier: 4.0 
   },
   [SymbolType.GIFT]: { 
     color: '#f4569e', 
     imageUrl: '/morozenoi.png', 
     label: 'Moroz', 
-    multiplier: 2.5 
+    multiplier: 5.0 
   },
   
   // High (NFTs)
@@ -83,19 +83,19 @@ export const SYMBOL_CONFIG: Record<SymbolType, { color: string, icon?: React.Rea
     color: '#0098ea', 
     imageUrl: '/kerpuch.svg', 
     label: 'Kerpuch', 
-    multiplier: 4.0 
+    multiplier: 8.0 
   },
   [SymbolType.HASH]: { 
     color: '#f2994a', 
     imageUrl: '/obuv.png', 
     label: 'Obuv', 
-    multiplier: 0.7 
+    multiplier: 1.5 
   },
   [SymbolType.NUM]: { 
     color: '#fbc531', 
     imageUrl: '/ohcki.png', 
     label: 'Ochki', 
-    multiplier: 0.8 
+    multiplier: 1.8 
   },
   
   // Specials
@@ -112,20 +112,20 @@ export const COIN_COLORS: Record<CoinType, string> = {
 };
 
 export const BASE_WEIGHTS: { type: SymbolType; weight: number }[] = [
-  { type: SymbolType.PLANE, weight: 15 },
-  { type: SymbolType.LOCK, weight: 10 },
-  { type: SymbolType.SHIELD, weight: 60 },
-  { type: SymbolType.BOT, weight: 40 },
+  { type: SymbolType.PLANE, weight: 20 },
+  { type: SymbolType.LOCK, weight: 15 },
+  { type: SymbolType.SHIELD, weight: 55 },
+  { type: SymbolType.BOT, weight: 35 },
   { type: SymbolType.STAR, weight: 35 },
   { type: SymbolType.GIFT, weight: 30 },
-  { type: SymbolType.DIAMOND, weight: 20 },
-  { type: SymbolType.HASH, weight: 60 },
-  { type: SymbolType.NUM, weight: 60 },
-  { type: SymbolType.WILD, weight: 20 },
-  { type: SymbolType.COIN, weight: 35 },
+  { type: SymbolType.DIAMOND, weight: 25 },
+  { type: SymbolType.HASH, weight: 55 },
+  { type: SymbolType.NUM, weight: 55 },
+  { type: SymbolType.WILD, weight: 30 },
+  { type: SymbolType.COIN, weight: 40 },
 ];
 
 export const BONUS_WEIGHTS: { type: SymbolType; weight: number }[] = [
-  { type: SymbolType.PLANE, weight: 200 }, // Empty space
+  { type: SymbolType.EMPTY, weight: 200 }, // Empty space
   { type: SymbolType.COIN, weight: 15 },
 ];

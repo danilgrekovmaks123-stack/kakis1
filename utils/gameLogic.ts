@@ -25,23 +25,23 @@ export const getRandomSymbol = (isBonus: boolean = false, bet: number = 1): Symb
     const valRoll = Math.random();
     let mult = 0.1;
     
-    if (valRoll > 0.97) {
-        // Max win: 3.0x for small bets (TON), 2.0x for large bets (Stars)
-        mult = bet < 1 ? 3.0 : 2.0; 
-    } else if (valRoll > 0.93) {
-        mult = 2.0; // 0.1 -> 0.2, 10 -> 20
-    } else if (valRoll > 0.85) {
-        mult = 1.5; // 10 -> 15
-    } else if (valRoll > 0.75) {
-        mult = 1.2; // 10 -> 12
-    } else if (valRoll > 0.60) {
-        mult = 1.0; // Equal to bet
-    } else if (valRoll > 0.40) {
-        mult = 0.5;
+    if (valRoll > 0.90) {
+        // Max win: 5.0x for small bets, 3.0x for large bets
+        mult = bet < 1 ? 5.0 : 3.0; 
+    } else if (valRoll > 0.80) {
+        mult = 2.5; 
+    } else if (valRoll > 0.65) {
+        mult = 2.0; 
+    } else if (valRoll > 0.50) {
+        mult = 1.5; 
+    } else if (valRoll > 0.35) {
+        mult = 1.2; 
     } else if (valRoll > 0.20) {
-        mult = 0.3;
+        mult = 1.0;
+    } else if (valRoll > 0.10) {
+        mult = 0.5;
     } else {
-        mult = 0.1;
+        mult = 0.3;
     }
 
     // Ensure integers for display niceness if bet is large enough, else 1 decimal
@@ -142,10 +142,10 @@ export const checkWin = (grid: SymbolData[][], bet: number, theme: ThemeId = 'du
 
     if (matchCount >= 3 && currentSymbol !== SymbolType.COIN) {
        // Base win calc: Bet * SymbolMult * LengthMult
-       // LengthMult: 3->1x, 4->2x, 5->5x
-       let lengthMult = 1;
-       if (matchCount === 4) lengthMult = 2;
-       if (matchCount === 5) lengthMult = 5;
+       // LengthMult: 3->2x, 4->5x, 5->10x
+       let lengthMult = 2;
+       if (matchCount === 4) lengthMult = 5;
+       if (matchCount === 5) lengthMult = 10;
        
        const symbolMult = SYMBOL_CONFIG[currentSymbol].multiplier;
        winAmount += (bet * symbolMult * lengthMult);

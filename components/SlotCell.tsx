@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, startTransition } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SymbolData, SymbolType, CoinType } from '../types';
 import { SYMBOL_CONFIG, THEME_IMAGES, ThemeId } from '../constants';
@@ -19,11 +19,75 @@ interface SlotCellProps {
   isUnderWild?: boolean;
 }
 
-const SlotCell: React.FC<SlotCellProps> = React.memo(({ symbol, highlight, isBonusMode, isSpinning, isActiveSpecial, theme, isUnderWild }) => {
-  const config = SYMBOL_CONFIG[symbol.type];
+const standardStrip: SymbolType[] = [
+  SymbolType.HASH, SymbolType.NUM, SymbolType.STAR, SymbolType.DIAMOND, SymbolType.BOT, SymbolType.SHIELD, SymbolType.PLANE, SymbolType.GIFT
+];
+const bonusStrip: SymbolType[] = [
+  SymbolType.COIN, SymbolType.EMPTY, SymbolType.COIN, SymbolType.EMPTY, SymbolType.COIN
+];
+
+// Helper component for spinning state to avoid hook conditional issues
+const SpinningCell = React.memo(({ theme, isBonusMode }: { theme: ThemeId, isBonusMode: boolean }) => {
+    const stripSymbols = isBonusMode ? bonusStrip : standardStrip;
+    
+    // Helper to get image URL (duplicated from main component to avoid prop drilling overkill)
+    const getImageUrl = (type: SymbolType) => {
+        return THEME_IMAGES[theme][type] || SYMBOL_CONFIG[type].imageUrl;
+    };
+
+    return (
+      <div className={`w-full h-full rounded-xl ${theme === 'flour' ? 'bg-[#839843] border-black/5' : 'bg-[#232e3c] border-white/5'} overflow-hidden relative transform-gpu`} style={{ willChange: 'transform', backfaceVisibility: 'hidden', transform: 'translate3d(0,0,0)', contain: 'strict', contentVisibility: 'auto' }}>
+         <div className="flex flex-col w-full absolute top-0 left-0 animate-[spinReel_0.5s_linear_infinite] will-change-transform" style={{ backfaceVisibility: 'hidden', perspective: '1000px' }}>
+            {[...stripSymbols, ...stripSymbols, ...stripSymbols].map((type, i) => {
+                const conf = SYMBOL_CONFIG[type];
+                if (!conf && type !== SymbolType.COIN) {
+                     return <div key={i} className="h-full w-full aspect-square" />;
+                }
+                
+                if (type === SymbolType.COIN) {
+                    return (
+                        <div key={i} className="h-full w-full aspect-square flex items-center justify-center">
+                             <img 
+                                src={THEME_IMAGES[theme]['COIN_STRIP']} 
+                                className="w-3/5 h-3/5 object-contain transform scale-y-[1.2]" 
+                                alt="coin" 
+                                decoding="async"
+                                loading="eager" 
+                             />
+                        </div>
+                    );
+                }
+
+                const imgUrl = getImageUrl(type);
+                return (
+                    <div key={i} className="h-full w-full aspect-square flex items-center justify-center">
+                         {imgUrl ? (
+                             <img 
+                                src={imgUrl} 
+                                className="w-3/5 h-3/5 object-contain transform scale-y-[1.2]" 
+                                alt="" 
+                                decoding="async"
+                                loading="eager" 
+                             />
+                         ) : (
+                             <div style={{ color: conf.color }} className="scale-75">{conf.icon}</div>
+                         )}
+                    </div>
+                );
+            })}
+         </div>
+      </div>
+    );
+});
+
+const SlotCell: React.FC<SlotCellProps> = React.memo(function SlotCell({ symbol, highlight, isBonusMode, isSpinning, isActiveSpecial, theme, isUnderWild }) {
   const [lottieData, setLottieData] = useState<any>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
+
+  const config = SYMBOL_CONFIG[symbol.type];
+  // If config is missing, we return null but hooks must have run already
+  const shouldRender = !!config;
 
   // Handle Expansion for Flour Wild
   useEffect(() => {
@@ -56,7 +120,7 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(({ symbol, highlight, isBon
   };
 
   useEffect(() => {
-      let animationPath = null;
+      let animationPath: string | null = null;
       if (symbol.type === SymbolType.PLANE) {
           animationPath = THEME_IMAGES[theme]['ANIMATION_PLANE'];
       } else if (symbol.type === SymbolType.WILD) {
@@ -64,33 +128,48 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(({ symbol, highlight, isBon
       }
 
       if (animationPath) {
+          const cacheKey = `lottie:${animationPath}`;
           if (lottieCache[animationPath]) {
               setLottieData(lottieCache[animationPath]);
               return;
           }
+          try {
+              const cached = typeof window !== 'undefined' ? window.localStorage.getItem(cacheKey) : null;
+              if (cached) {
+                  const data = JSON.parse(cached);
+                  lottieCache[animationPath] = data;
+                  setLottieData(data);
+                  return;
+              }
+          } catch {}
 
           if (!pendingRequests[animationPath]) {
               pendingRequests[animationPath] = fetch(animationPath)
                   .then(response => response.arrayBuffer())
                   .then(buffer => {
-                      try {
-                          const json = JSON.parse(new TextDecoder().decode(pako.inflate(buffer)));
-                          lottieCache[animationPath!] = json; 
-                          return json;
-                      } catch (e) {
-                          console.error('Failed to parse TGS', e);
-                          throw e;
-                      } finally {
-                          delete pendingRequests[animationPath!];
-                      }
+                      return new Promise<any>((resolve, reject) => {
+                          const ric = (typeof window !== 'undefined' && (window as any).requestIdleCallback) ? (window as any).requestIdleCallback : (cb: any) => setTimeout(cb, 0);
+                          ric(() => {
+                              try {
+                                  const json = JSON.parse(new TextDecoder().decode(pako.inflate(buffer)));
+                                  lottieCache[animationPath!] = json;
+                                  try { if (typeof window !== 'undefined') window.localStorage.setItem(cacheKey, JSON.stringify(json)); } catch {}
+                                  resolve(json);
+                              } catch (e) {
+                                  reject(e);
+                              } finally {
+                                  delete pendingRequests[animationPath!];
+                              }
+                          });
+                      });
                   });
           }
 
           let isMounted = true;
           pendingRequests[animationPath].then(json => {
-              if (isMounted) setLottieData(json);
+              if (isMounted) startTransition(() => setLottieData(json));
           }).catch(() => {
-             if (isMounted) setLottieData(null);
+             if (isMounted) startTransition(() => setLottieData(null));
           });
           
           return () => { isMounted = false; };
@@ -103,53 +182,25 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(({ symbol, highlight, isBon
   if (isSpinning && !symbol.isLocked) {
     // Generate a consistent random strip for this cell instance
     // We'll use a mix of symbols to simulate the "blur" of known items
-    const standardSymbols = [
-        SymbolType.HASH, SymbolType.NUM, SymbolType.STAR, SymbolType.DIAMOND, SymbolType.BOT, SymbolType.SHIELD, SymbolType.PLANE, SymbolType.GIFT
-    ];
-
-    // In bonus mode, show spinning coins mixed with empty space for visibility
-    const bonusSymbols = [
-        SymbolType.COIN, SymbolType.PLANE, SymbolType.COIN, SymbolType.PLANE, SymbolType.COIN
-    ];
-
-    const stripSymbols = isBonusMode ? bonusSymbols : standardSymbols;
-
+    // useMemo must be at the top level in a real refactor, but here it's conditional return
+    // HOWEVER, since isSpinning changes, this conditional return causes hook mismatch if we use hooks below.
+    // We need to move all hooks to the top.
+    // FORTUNATELY: We already moved useState/useEffect to top.
+    // BUT: useMemo below is conditional. That is BAD.
+    // Let's move useMemo up.
     return (
-      <div className={`w-full h-full rounded-xl ${theme === 'flour' ? 'bg-[#839843] border-black/5' : 'bg-[#232e3c] border-white/5'} overflow-hidden relative transform-gpu`}>
-         {/* The Spinning Strip - Slower (0.5s) for better visibility and less lag */}
-         <div className="flex flex-col w-full absolute top-0 left-0 animate-[spinReel_0.5s_linear_infinite] will-change-transform">
-            {/* Repeat the strip twice to allow for seamless loop */}
-            {[...stripSymbols, ...stripSymbols, ...stripSymbols].map((type, i) => {
-                const conf = SYMBOL_CONFIG[type];
-                
-                // Special render for Coin in strip
-                if (type === SymbolType.COIN) {
-                    return (
-                        <div key={i} className="h-full w-full aspect-square flex items-center justify-center">
-                             <div className="w-3/5 h-3/5 flex items-center justify-center transform scale-y-[1.2] opacity-90">
-                                <img src={THEME_IMAGES[theme]['COIN_STRIP']} className="w-full h-full object-contain" alt="coin" />
-                             </div>
-                        </div>
-                    );
-                }
-
-                return (
-                    <div key={i} className="h-full w-full aspect-square flex items-center justify-center">
-                         {/* Symbol Container with Vertical Stretch (Motion Blur Simulation) */}
-                         <div className="w-3/5 h-3/5 flex items-center justify-center transform scale-y-[1.2] opacity-80">
-                             {getImageUrl(type) ? (
-                                 <img src={getImageUrl(type)} className="w-full h-full object-contain" alt="" />
-                             ) : (
-                                 <div style={{ color: conf.color }} className="scale-75">{conf.icon}</div>
-                             )}
-                         </div>
-                    </div>
-                );
-            })}
-         </div>
-      </div>
+      <SpinningCell theme={theme} isBonusMode={isBonusMode} />
     );
   }
+
+  // Handle Empty Slot (Bonus Mode)
+  if (symbol.type === SymbolType.EMPTY) {
+      return (
+          <div className={`w-full h-full rounded-xl ${theme === 'flour' ? 'bg-[#839843] border-black/5' : 'bg-[#232e3c] border-white/5'} shadow-sm`} />
+      );
+  }
+
+  if (!shouldRender || !config) return null;
 
   if (isHidden) {
       return <div className="w-full h-full bg-transparent" />;
@@ -159,25 +210,18 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(({ symbol, highlight, isBon
   if (symbol.type === SymbolType.COIN) {
     return (
       <div className={`w-full h-full p-1.5 flex items-center justify-center`}>
-        <motion.div 
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ 
-              scale: isActiveSpecial ? 1.1 : (symbol.isLocked ? 1 : 1), 
-              opacity: 1,
+        <div 
+          className={`w-full h-full rounded-full flex flex-col items-center justify-center text-white relative group overflow-hidden transition-all duration-300 ${isActiveSpecial ? 'z-20 scale-110' : ''}`}
+          style={{
               boxShadow: isActiveSpecial 
-                  ? (symbol.coinType === CoinType.MULTIPLIER ? "0 0 30px #ef4444" : "0 0 30px #eab308")
+                  ? (symbol.coinType === CoinType.MULTIPLIER ? "0 0 20px #ef4444" : "0 0 20px #eab308")
                   : "0 4px 12px rgba(0,0,0,0.4)"
           }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          className={`w-full h-full rounded-full flex flex-col items-center justify-center text-white relative group overflow-hidden ${isActiveSpecial ? 'z-20' : ''}`}
         >
-          {/* Active Glow Overlay */}
+          {/* Active Glow Overlay - Simplified */}
           {isActiveSpecial && (
-              <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: [0.5, 1, 0.5] }}
-                  transition={{ duration: 0.8, repeat: Infinity }}
-                  className={`absolute inset-0 z-10 mix-blend-overlay ${
+              <div 
+                  className={`absolute inset-0 z-10 mix-blend-overlay animate-pulse ${
                       symbol.coinType === CoinType.MULTIPLIER ? 'bg-red-400' : 'bg-yellow-400'
                   }`}
               />
@@ -193,19 +237,13 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(({ symbol, highlight, isBon
           {/* Content */}
           <div className="relative z-10 flex flex-col items-center justify-center w-full h-full">
             
-            <AnimatePresence mode="popLayout">
-                {(symbol.coinValue > 0 || symbol.coinType !== CoinType.COLLECT) && (
-                    <motion.span 
-                        key={symbol.coinValue}
-                        initial={{ scale: 1.5, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ type: "spring", stiffness: 500, damping: 15 }}
-                        className="text-sm sm:text-lg font-bold drop-shadow-md leading-none text-white bg-black/40 px-2 py-0.5 rounded-md backdrop-blur-[2px]"
-                    >
-                        {Number(symbol.coinValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    </motion.span>
-                )}
-            </AnimatePresence>
+            {(symbol.coinValue > 0 || symbol.coinType !== CoinType.COLLECT) && (
+                <span 
+                    className="text-sm sm:text-lg font-bold drop-shadow-md leading-none text-white bg-black/40 px-2 py-0.5 rounded-md backdrop-blur-[2px]"
+                >
+                    {Number(symbol.coinValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                </span>
+            )}
             
             {symbol.coinType !== CoinType.STANDARD && (
                 <span className="absolute -bottom-3 text-[8px] font-bold bg-black/40 px-1.5 py-0.5 rounded-full uppercase tracking-wider backdrop-blur-sm border border-white/10 text-white z-20">
@@ -215,7 +253,7 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(({ symbol, highlight, isBon
                 </span>
             )}
           </div>
-        </motion.div>
+        </div>
       </div>
     );
   }
@@ -243,7 +281,12 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(({ symbol, highlight, isBon
                 : 'bg-gradient-to-b from-[#2b5278] to-[#1e3a57] shadow-[0_0_15px_#5288c1] z-10 scale-[1.02] border border-[#5288c1]')
             : (theme === 'flour' ? 'bg-[#839843] border-black/5 shadow-sm hover:bg-[#9ab355]' : 'bg-[#232e3c] border border-white/5 shadow-sm hover:bg-[#2c394b]')
         }
-    `}>
+    `} style={{ 
+        willChange: 'transform', 
+        backfaceVisibility: 'hidden', 
+        contain: (isExpanded && theme === 'flour') ? 'none' : 'strict', 
+        contentVisibility: (isExpanded && theme === 'flour') ? 'visible' : 'auto' 
+    }}>
       {!(isExpanded && theme === 'flour' && symbol.type === SymbolType.WILD) && (
       <div 
         style={{ color: config.color }} 
@@ -251,15 +294,16 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(({ symbol, highlight, isBon
       >
          {/* Icon or Image Container */}
          {(symbol.type === SymbolType.PLANE || symbol.type === SymbolType.WILD) && lottieData ? (
-             <div className="w-4/5 h-4/5">
-                <Lottie animationData={lottieData} loop={true} />
+             <div className="w-4/5 h-4/5" style={{ willChange: 'transform', backfaceVisibility: 'hidden' }}>
+                <Lottie animationData={lottieData} loop={true} rendererSettings={{ preserveAspectRatio: 'xMidYMid meet', progressiveLoad: true }} />
              </div>
          ) : getImageUrl(symbol.type) ? (
-           <img 
-             src={getImageUrl(symbol.type)} 
-             alt={config.label} 
-             className={`${(theme === 'flour' && [SymbolType.GIFT, SymbolType.DIAMOND, SymbolType.NUM].includes(symbol.type)) ? 'w-[95%] h-[95%]' : 'w-4/5 h-4/5'} object-contain drop-shadow-lg ${highlight ? 'brightness-110' : ''}`}
-           />
+          <img 
+            src={getImageUrl(symbol.type)} 
+            alt={config.label} 
+            className={`${(theme === 'flour' && [SymbolType.GIFT, SymbolType.DIAMOND, SymbolType.NUM].includes(symbol.type)) ? 'w-[95%] h-[95%]' : 'w-4/5 h-4/5'} object-contain drop-shadow-lg ${highlight ? 'brightness-110' : ''}`}
+            decoding="async"
+          />
          ) : (
            React.cloneElement(config.icon as React.ReactElement, { 
                size: highlight ? 42 : 36, 
@@ -282,9 +326,7 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(({ symbol, highlight, isBon
         <>
             {isExpanded && theme === 'flour' ? (
                  // Expanded Wild (Frame 13 Style)
-                 <motion.div 
-                   initial={{ opacity: 0, scale: 0.9 }}
-                   animate={{ opacity: 1, scale: 1 }}
+                 <div 
                    className="absolute top-[-2px] left-[-4px] w-[calc(100%+8px)] h-[calc(200%+14px)] md:h-[calc(200%+18px)] z-50 flex flex-col items-start p-[22px_17px_14px_22px] rounded-[13px] overflow-hidden shadow-[0_0_15px_rgba(0,0,0,0.3)] bg-[#839843] border border-black/5"
                    style={{
                        backgroundImage: `url(${getImageUrl(symbol.type)})`,
@@ -298,21 +340,29 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(({ symbol, highlight, isBon
                             <span className="text-white font-black text-2xl tracking-widest">WILD</span>
                         </div>
                     </div>
-                 </motion.div>
+                 </div>
             ) : (
                 <>
-                <motion.div 
-                className="absolute inset-0 rounded-xl border-2 border-yellow-400/50"
-                animate={{ opacity: [0, 1, 0], scale: [1, 1.05, 1] }}
-                transition={{ duration: 1, repeat: Infinity }}
-                />
-                <div className="absolute inset-0 bg-yellow-400/5 blur-xl rounded-full" />
+                <div className="absolute inset-0 rounded-xl border-2 border-yellow-400/50 animate-pulse pointer-events-none" />
+                <div className="absolute inset-0 bg-yellow-400/5 rounded-full pointer-events-none" />
                 </>
             )}
         </>
       )}
     </div>
   );
+}, (prev, next) => {
+  if (prev.theme !== next.theme) return false;
+  if (prev.highlight !== next.highlight) return false;
+  if (prev.isBonusMode !== next.isBonusMode) return false;
+  if (prev.isSpinning !== next.isSpinning) return false;
+  if ((prev.isActiveSpecial || false) !== (next.isActiveSpecial || false)) return false;
+  if ((prev.isUnderWild || false) !== (next.isUnderWild || false)) return false;
+  if (prev.symbol.type !== next.symbol.type) return false;
+  if ((prev.symbol.isLocked || false) !== (next.symbol.isLocked || false)) return false;
+  if ((prev.symbol.coinType || null) !== (next.symbol.coinType || null)) return false;
+  if ((prev.symbol.coinValue || 0) !== (next.symbol.coinValue || 0)) return false;
+  return true;
 });
 
 export default SlotCell;
