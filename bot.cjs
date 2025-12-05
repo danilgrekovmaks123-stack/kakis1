@@ -505,8 +505,29 @@ bot.action(/^decline_(\d+)_(\d+)$/, async (ctx) => {
 // --- Start Servers ---
 const startBot = async () => {
     try {
-        await bot.launch();
-        console.log('Bot is running...');
+        // Use Webhook if in production and CASINO_URL is available (and valid)
+        if (process.env.NODE_ENV === 'production' && CASINO_URL && CASINO_URL.startsWith('https')) {
+            const webhookPath = `/telegraf/${token}`;
+            const webhookUrl = `${CASINO_URL}${webhookPath}`;
+            
+            console.log(`Using Webhook: ${webhookUrl}`);
+            
+            // Set webhook
+            await bot.telegram.setWebhook(webhookUrl);
+            
+            // Handle updates via Express
+            app.use(bot.webhookCallback(webhookPath));
+            
+            console.log('Bot webhook configured successfully.');
+        } else {
+            // Use Polling for local development
+            console.log('Using Polling...');
+            // Clear webhook just in case it was set previously
+            await bot.telegram.deleteWebhook();
+            
+            await bot.launch();
+            console.log('Bot polling started.');
+        }
     } catch (e) {
         console.error('Bot launch failed:', e);
         fs.writeFileSync('startup_error.log', 'Bot launch failed: ' + e.message + '\n' + e.stack);
