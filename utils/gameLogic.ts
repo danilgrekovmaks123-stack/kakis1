@@ -1,8 +1,8 @@
 import { SymbolType, SymbolData, CoinType, ROWS, COLS } from '../types';
-import { BASE_WEIGHTS, BONUS_WEIGHTS, SYMBOL_CONFIG, ThemeId } from '../constants';
+import { DUROV_WEIGHTS, FLOUR_WEIGHTS, BONUS_WEIGHTS, SYMBOL_CONFIG, ThemeId } from '../constants';
 
-export const getRandomSymbol = (isBonus: boolean = false, bet: number = 1): SymbolData => {
-  const weights = isBonus ? BONUS_WEIGHTS : BASE_WEIGHTS;
+export const getRandomSymbol = (isBonus: boolean = false, bet: number = 1, theme: ThemeId = 'durov'): SymbolData => {
+  const weights = isBonus ? BONUS_WEIGHTS : (theme === 'durov' ? DUROV_WEIGHTS : FLOUR_WEIGHTS);
   const totalWeight = weights.reduce((acc, item) => acc + item.weight, 0);
   let random = Math.random() * totalWeight;
   
@@ -28,6 +28,8 @@ export const getRandomSymbol = (isBonus: boolean = false, bet: number = 1): Symb
     if (valRoll > 0.97) {
         // Max win: 3.0x for small bets (TON), 2.0x for large bets (Stars)
         mult = bet < 1 ? 3.0 : 2.0; 
+        // Durov can give higher mults rarely
+        if (theme === 'durov' && Math.random() > 0.8) mult = 5.0;
     } else if (valRoll > 0.93) {
         mult = 2.0; // 0.1 -> 0.2, 10 -> 20
     } else if (valRoll > 0.85) {
@@ -68,7 +70,7 @@ export const getRandomSymbol = (isBonus: boolean = false, bet: number = 1): Symb
   };
 };
 
-export const generateGrid = (rows: number, cols: number, isBonus: boolean = false, bet: number = 1): SymbolData[][] => {
+export const generateGrid = (rows: number, cols: number, isBonus: boolean = false, bet: number = 1, theme: ThemeId = 'durov'): SymbolData[][] => {
   const grid: SymbolData[][] = [];
   
   // Initialize empty grid
@@ -81,13 +83,13 @@ export const generateGrid = (rows: number, cols: number, isBonus: boolean = fals
     let hasWildInColumn = false;
 
     for (let r = 0; r < rows; r++) {
-      let symbol = getRandomSymbol(isBonus, bet);
+      let symbol = getRandomSymbol(isBonus, bet, theme);
 
       // Constraint: Only one Wild per column (line)
       // If we already have a Wild in this column, reroll until it's not a Wild
       if (symbol.type === SymbolType.WILD && hasWildInColumn) {
          while (symbol.type === SymbolType.WILD) {
-             symbol = getRandomSymbol(isBonus, bet);
+             symbol = getRandomSymbol(isBonus, bet, theme);
          }
       }
 

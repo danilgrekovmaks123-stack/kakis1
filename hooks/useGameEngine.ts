@@ -32,7 +32,7 @@ export const useGameEngine = ({
   onTransaction,
   isMuted = false
 }: UseGameEngineProps) => {
-  const [grid, setGrid] = useState<SymbolData[][]>(generateGrid(ROWS, COLS, false, 10));
+  const [grid, setGrid] = useState<SymbolData[][]>(generateGrid(ROWS, COLS, false, 10, theme));
   const [gameState, setGameState] = useState<GameState>(GameState.IDLE);
   const [winData, setWinData] = useState<{winAmount: number, winningLines: {row: number, col: number}[]} | null>(null);
   const [bonusSpins, setBonusSpins] = useState(3);
@@ -87,7 +87,7 @@ export const useGameEngine = ({
     }
 
     // Determine result immediately (backend simulation)
-    const newGrid = generateGrid(ROWS, COLS, false, bet);
+    const newGrid = generateGrid(ROWS, COLS, false, bet, theme);
     
     // Simulate reel stopping sequence
     let currentReel = 0;
@@ -213,7 +213,7 @@ export const useGameEngine = ({
               if (cell.isLocked) return cell;
               
               // In bonus, we only care if we hit a coin or blank
-              const newSymbol = getRandomSymbol(true, bet);
+              const newSymbol = getRandomSymbol(true, bet, theme);
               if (newSymbol.type === SymbolType.COIN) {
                   return { ...newSymbol, isLocked: true }; // Initially lock all coins
               }

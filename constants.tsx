@@ -111,18 +111,32 @@ export const COIN_COLORS: Record<CoinType, string> = {
   [CoinType.MAGIC]: 'bg-[#9c27b0] from-[#ab47bc] to-[#7b1fa2]', // Purple
 };
 
-export const BASE_WEIGHTS: { type: SymbolType; weight: number }[] = [
-  { type: SymbolType.PLANE, weight: 20 },
-  { type: SymbolType.LOCK, weight: 15 },
-  { type: SymbolType.SHIELD, weight: 75 }, // Increased low value
-  { type: SymbolType.BOT, weight: 55 }, // Increased mid value
-  { type: SymbolType.STAR, weight: 45 },
-  { type: SymbolType.GIFT, weight: 35 },
-  { type: SymbolType.DIAMOND, weight: 10 }, // Reduced high value
-  { type: SymbolType.HASH, weight: 70 }, // Increased filler
-  { type: SymbolType.NUM, weight: 70 }, // Increased filler
-  { type: SymbolType.WILD, weight: 10 }, // Reduced wild
-  { type: SymbolType.COIN, weight: 20 }, // Reduced bonus chance
+export const DUROV_WEIGHTS: { type: SymbolType; weight: number }[] = [
+  { type: SymbolType.PLANE, weight: 5 },   // High value (Rare)
+  { type: SymbolType.LOCK, weight: 3 },    // Highest value (Very Rare)
+  { type: SymbolType.SHIELD, weight: 90 }, // Low value (Common)
+  { type: SymbolType.BOT, weight: 30 },    // Mid
+  { type: SymbolType.STAR, weight: 25 },   // Mid
+  { type: SymbolType.GIFT, weight: 20 },   // Mid
+  { type: SymbolType.DIAMOND, weight: 8 }, // High
+  { type: SymbolType.HASH, weight: 100 },  // Filler (Very Common)
+  { type: SymbolType.NUM, weight: 100 },   // Filler (Very Common)
+  { type: SymbolType.WILD, weight: 5 },    // Wild (Rare)
+  { type: SymbolType.COIN, weight: 15 },   // Bonus (Rare)
+];
+
+export const FLOUR_WEIGHTS: { type: SymbolType; weight: number }[] = [
+  { type: SymbolType.PLANE, weight: 10 },  
+  { type: SymbolType.LOCK, weight: 5 },    // Still rare to prevent bankruptcy
+  { type: SymbolType.SHIELD, weight: 80 }, // Common
+  { type: SymbolType.BOT, weight: 60 },    // Frequent Mid
+  { type: SymbolType.STAR, weight: 50 },   // Frequent Mid
+  { type: SymbolType.GIFT, weight: 40 },   // Frequent Mid
+  { type: SymbolType.DIAMOND, weight: 15 },
+  { type: SymbolType.HASH, weight: 60 },   
+  { type: SymbolType.NUM, weight: 60 },   
+  { type: SymbolType.WILD, weight: 30 },   // Wild (Very Frequent -> More connections)
+  { type: SymbolType.COIN, weight: 25 },   // Bonus (Frequent)
 ];
 
 export const BONUS_WEIGHTS: { type: SymbolType; weight: number }[] = [

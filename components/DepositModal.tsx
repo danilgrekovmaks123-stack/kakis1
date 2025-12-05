@@ -7,6 +7,7 @@ interface DepositModalProps {
   onClose: () => void;
   onDeposit: (amount: number, currency: 'TON' | 'STARS') => Promise<boolean>;
   onWithdraw?: (amount: number) => Promise<boolean>;
+  onActivatePromo?: (code: string) => Promise<{success: boolean, message?: string, reward?: number}>;
   currentCurrency: 'TON' | 'STARS';
 }
 
@@ -17,9 +18,10 @@ const PRESETS = {
 
 const WITHDRAW_PRESETS = [500, 1000, 2500, 5000, 10000];
 
-export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, currentCurrency }: DepositModalProps) {
+export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, onActivatePromo, currentCurrency }: DepositModalProps) {
   const [amount, setAmount] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'deposit' | 'withdrawal'>('deposit');
+  const [activeTab, setActiveTab] = useState<'deposit' | 'withdrawal' | 'promo'>('deposit');
+  const [promoCode, setPromoCode] = useState('');
   // Force STARS as the only currency
   const activeCurrency = 'STARS';
   const [isSuccess, setIsSuccess] = useState(false);
@@ -29,6 +31,7 @@ export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, c
   React.useEffect(() => {
     if (isOpen) {
         setAmount('');
+        setPromoCode('');
         setIsSuccess(false);
         setActiveTab('deposit');
     }
@@ -61,6 +64,29 @@ export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, c
                   setIsSuccess(false);
               }, 2500);
           }
+      }
+  };
+
+  const handlePromo = async () => {
+      if (!onActivatePromo || !promoCode) return;
+      const res = await onActivatePromo(promoCode);
+      if (res.success) {
+          setSuccessMessage(res.message || 'Промокод активирован!');
+          setIsSuccess(true);
+          setTimeout(() => {
+              onClose();
+              setIsSuccess(false);
+              setPromoCode('');
+          }, 1500);
+      } else {
+          // Quick error feedback
+          const original = successMessage;
+          setSuccessMessage(res.message || 'Ошибка');
+          // We'll use the success overlay but maybe we should style it red?
+          // For now, let's just use alert to keep it simple or show in success overlay.
+          // Let's reuse success overlay but it's green. That's confusing.
+          // Let's just use alert for now.
+          alert(res.message);
       }
   };
 
@@ -111,7 +137,7 @@ export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, c
           </div>
 
           {/* Tabs */}
-          <div className="grid grid-cols-2 p-2 gap-2 bg-[#1c2533]">
+          <div className="grid grid-cols-3 p-2 gap-2 bg-[#1c2533]">
               <button
                   onClick={() => setActiveTab('deposit')}
                   className={`py-3 rounded-xl font-bold text-sm transition-all ${
@@ -131,6 +157,16 @@ export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, c
                   }`}
               >
                   Вывод
+              </button>
+              <button
+                  onClick={() => setActiveTab('promo')}
+                  className={`py-3 rounded-xl font-bold text-sm transition-all ${
+                      activeTab === 'promo' 
+                      ? 'bg-[#2c3847] text-white shadow-lg' 
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+              >
+                  Промо
               </button>
           </div>
 
@@ -182,8 +218,9 @@ export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, c
                     >
                         Оплатить {amount ? `${amount} ${activeCurrency}` : ''}
                     </button>
+
                 </>
-            ) : (
+            ) : activeTab === 'withdrawal' ? (
                 <>
                     {/* Withdraw Presets */}
                     <div className="grid grid-cols-3 gap-2">
@@ -232,6 +269,43 @@ export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, c
                     >
                         Вывести {amount ? `${amount} STARS` : ''}
                     </button>
+                </>
+            ) : (
+                <>
+                   {/* Promo Content */}
+                   <div className="flex flex-col gap-4">
+                       <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+                           <h3 className="font-bold text-white mb-2 flex items-center gap-2">
+                               <Star className="text-yellow-400" size={20} />
+                               Активация промокода
+                           </h3>
+                           <p className="text-sm text-gray-400 mb-4">
+                               Введите промокод, чтобы получить бонусные звезды на счет.
+                           </p>
+                           
+                           <div className="relative">
+                               <input
+                                   type="text"
+                                   value={promoCode}
+                                   onChange={(e) => setPromoCode(e.target.value)}
+                                   placeholder="Введите промокод"
+                                   className="w-full bg-black/20 border border-white/10 rounded-xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500 transition-colors font-mono uppercase"
+                               />
+                           </div>
+                       </div>
+
+                       <button
+                           onClick={handlePromo}
+                           disabled={!promoCode}
+                           className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all ${
+                               !promoCode
+                               ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                               : 'bg-yellow-500 hover:bg-yellow-600 text-white shadow-yellow-500/25'
+                           }`}
+                       >
+                           Активировать
+                       </button>
+                   </div>
                 </>
             )}
 

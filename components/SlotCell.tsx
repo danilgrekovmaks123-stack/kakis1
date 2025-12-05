@@ -35,46 +35,53 @@ const SpinningCell = React.memo(({ theme, isBonusMode }: { theme: ThemeId, isBon
         return THEME_IMAGES[theme][type] || SYMBOL_CONFIG[type].imageUrl;
     };
 
+    // Pre-calculate the rendered strip to avoid mapping on every render if props don't change
+    const renderedStrip = React.useMemo(() => {
+        // Reduce duplication if possible, but we need enough for loop. 2 sets might be enough if animation is fast.
+        // Keeping 3 for safety but ensuring efficient rendering.
+        return [...stripSymbols, ...stripSymbols, ...stripSymbols].map((type, i) => {
+            const conf = SYMBOL_CONFIG[type];
+            if (!conf && type !== SymbolType.COIN) {
+                 return <div key={i} className="h-full w-full aspect-square" />;
+            }
+            
+            if (type === SymbolType.COIN) {
+                return (
+                    <div key={i} className="h-full w-full aspect-square flex items-center justify-center will-change-contents">
+                         <img 
+                            src={THEME_IMAGES[theme]['COIN_STRIP']} 
+                            className="w-3/5 h-3/5 object-contain transform scale-y-[1.2]" 
+                            alt="coin" 
+                            decoding="async"
+                            loading="eager" 
+                         />
+                    </div>
+                );
+            }
+
+            const imgUrl = getImageUrl(type);
+            return (
+                <div key={i} className="h-full w-full aspect-square flex items-center justify-center will-change-contents">
+                     {imgUrl ? (
+                         <img 
+                            src={imgUrl} 
+                            className="w-3/5 h-3/5 object-contain transform scale-y-[1.2]" 
+                            alt="" 
+                            decoding="async"
+                            loading="eager" 
+                         />
+                     ) : (
+                         <div style={{ color: conf.color }} className="scale-75">{conf.icon}</div>
+                     )}
+                </div>
+            );
+        });
+    }, [theme, isBonusMode, stripSymbols]);
+
     return (
       <div className={`w-full h-full rounded-xl ${theme === 'flour' ? 'bg-[#839843] border-black/5' : 'bg-[#232e3c] border-white/5'} overflow-hidden relative transform-gpu`} style={{ willChange: 'transform', backfaceVisibility: 'hidden', transform: 'translate3d(0,0,0)', contain: 'strict', contentVisibility: 'auto' }}>
          <div className="flex flex-col w-full absolute top-0 left-0 animate-[spinReel_0.5s_linear_infinite] will-change-transform" style={{ backfaceVisibility: 'hidden', perspective: '1000px' }}>
-            {[...stripSymbols, ...stripSymbols, ...stripSymbols].map((type, i) => {
-                const conf = SYMBOL_CONFIG[type];
-                if (!conf && type !== SymbolType.COIN) {
-                     return <div key={i} className="h-full w-full aspect-square" />;
-                }
-                
-                if (type === SymbolType.COIN) {
-                    return (
-                        <div key={i} className="h-full w-full aspect-square flex items-center justify-center">
-                             <img 
-                                src={THEME_IMAGES[theme]['COIN_STRIP']} 
-                                className="w-3/5 h-3/5 object-contain transform scale-y-[1.2]" 
-                                alt="coin" 
-                                decoding="async"
-                                loading="eager" 
-                             />
-                        </div>
-                    );
-                }
-
-                const imgUrl = getImageUrl(type);
-                return (
-                    <div key={i} className="h-full w-full aspect-square flex items-center justify-center">
-                         {imgUrl ? (
-                             <img 
-                                src={imgUrl} 
-                                className="w-3/5 h-3/5 object-contain transform scale-y-[1.2]" 
-                                alt="" 
-                                decoding="async"
-                                loading="eager" 
-                             />
-                         ) : (
-                             <div style={{ color: conf.color }} className="scale-75">{conf.icon}</div>
-                         )}
-                    </div>
-                );
-            })}
+            {renderedStrip}
          </div>
       </div>
     );

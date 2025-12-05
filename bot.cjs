@@ -49,6 +49,7 @@ if (!fs.existsSync(DATA_DIR)) {
 
 const DB_FILE = path.join(DATA_DIR, 'transactions.json');
 const BALANCES_FILE = path.join(DATA_DIR, 'balances.json');
+const PROMOCODES_FILE = path.join(DATA_DIR, 'promocodes.json');
 
 app.use(cors());
 app.use(express.json());
@@ -71,6 +72,33 @@ function saveBalances(balances) {
         return true;
     } catch (e) {
         console.error('Error writing balances:', e);
+        return false;
+    }
+}
+
+function getPromocodes() {
+    try {
+        if (fs.existsSync(PROMOCODES_FILE)) {
+            return JSON.parse(fs.readFileSync(PROMOCODES_FILE, 'utf8'));
+        }
+    } catch (e) { console.error('Error reading promocodes:', e); }
+    
+    // Default Promocodes if file doesn't exist
+    return {
+        "1GAME": {
+            reward: 2,
+            currency: "STARS",
+            usedBy: []
+        }
+    };
+}
+
+function savePromocodes(promos) {
+    try {
+        fs.writeFileSync(PROMOCODES_FILE, JSON.stringify(promos, null, 2));
+        return true;
+    } catch (e) {
+        console.error('Error writing promocodes:', e);
         return false;
     }
 }
@@ -258,8 +286,8 @@ app.post('/api/game/transaction', (req, res) => {
 app.post('/api/create-invoice', async (req, res) => {
     const { amount, userId } = req.body;
 
-    if (!amount || amount <= 0) {
-        return res.status(400).json({ error: 'Invalid amount' });
+    if (!userId || !amount || amount <= 0) {
+        return res.status(400).json({ error: 'Invalid amount or userId' });
     }
 
     try {
@@ -284,6 +312,89 @@ app.post('/api/create-invoice', async (req, res) => {
         console.error('Invoice creation failed:', error);
         res.status(500).json({ error: 'Failed to create invoice' });
     }
+});
+
+// --- Test Endpoint ---
+app.post('/api/test/add-balance', (req, res) => {
+    const { userId, amount } = req.body;
+    if (!userId || !amount) return res.status(400).json({ error: 'Invalid params' });
+    
+    const newBalance = updateBalance(userId, amount);
+    logTransaction({
+        id: `test_deposit_${userId}_${Date.now()}`,
+        userId,
+        amount,
+        type: 'test_deposit',
+        status: 'completed'
+    });
+    res.json({ success: true, newBalance });
+});
+
+// --- Promo Code Logic ---
+const VALID_PROMOCODES = {
+    '1GAME': { reward: 2, maxUses: 1 } // code: { reward in Stars, maxUses per user }
+};
+
+function getUsedPromocodes() {
+    try {
+        if (fs.existsSync(PROMOCODES_FILE)) {
+            return JSON.parse(fs.readFileSync(PROMOCODES_FILE, 'utf8'));
+        }
+    } catch (e) { console.error('Error reading promocodes:', e); }
+    return {};
+}
+
+function saveUsedPromocodes(data) {
+    try {
+        fs.writeFileSync(PROMOCODES_FILE, JSON.stringify(data, null, 2));
+        return true;
+    } catch (e) {
+        console.error('Error writing promocodes:', e);
+        return false;
+    }
+}
+
+app.post('/api/promocode/activate', (req, res) => {
+    const { userId, code } = req.body;
+    
+    if (!userId || !code) {
+        return res.status(400).json({ error: 'Missing userId or code' });
+    }
+
+    const upperCode = code.toUpperCase().trim();
+    const promoConfig = VALID_PROMOCODES[upperCode];
+
+    if (!promoConfig) {
+        return res.status(400).json({ error: 'Invalid promo code' });
+    }
+
+    const usedData = getUsedPromocodes();
+    // Structure: { userId: [code1, code2] } or { userId: { code1: count } }
+    // Let's use { userId: { code: timestamp } } for simplicity checking existence
+    
+    if (!usedData[userId]) usedData[userId] = {};
+
+    if (usedData[userId][upperCode]) {
+        return res.status(400).json({ error: 'Promo code already used' });
+    }
+
+    // Apply Reward
+    const newBalance = updateBalance(userId, promoConfig.reward);
+    
+    // Mark as used
+    usedData[userId][upperCode] = new Date().toISOString();
+    saveUsedPromocodes(usedData);
+
+    logTransaction({
+        id: `promo_${userId}_${upperCode}_${Date.now()}`,
+        userId,
+        amount: promoConfig.reward,
+        type: 'promocode_reward',
+        code: upperCode,
+        status: 'completed'
+    });
+
+    res.json({ success: true, newBalance, reward: promoConfig.reward });
 });
 
 // --- Withdrawal Logic ---
@@ -392,11 +503,23 @@ bot.action(/^decline_(\d+)_(\d+)$/, async (ctx) => {
 });
 
 // --- Start Servers ---
-bot.launch().then(() => console.log('Bot started'));
+const startBot = async () => {
+    try {
+        await bot.launch();
+        console.log('Bot is running...');
+    } catch (e) {
+        console.error('Bot launch failed:', e);
+        fs.writeFileSync('startup_error.log', 'Bot launch failed: ' + e.message + '\n' + e.stack);
+        process.exit(1);
+    }
+};
+
+startBot();
+
 app.listen(PORT, () => {
     console.log(`API Server running on port ${PORT}`);
 });
 
 // Graceful stop
-process.once('SIGINT', () => { bot.stop('SIGINT'); });
-process.once('SIGTERM', () => { bot.stop('SIGTERM'); });
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));

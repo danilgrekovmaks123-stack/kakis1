@@ -127,6 +127,27 @@ export default function App() {
       }
   };
 
+  const handleActivatePromo = async (code: string) => {
+      if (!userId) return { success: false, message: 'User not found' };
+      try {
+          const resp = await fetch('/api/promocode/activate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, code })
+          });
+          const data = await resp.json();
+          if (data.success) {
+              setStarsBalance(data.newBalance);
+              return { success: true, message: 'Промокод активирован!', reward: data.reward };
+          } else {
+              return { success: false, message: data.error || 'Ошибка активации' };
+          }
+      } catch (e) {
+          console.error('Promo activation error', e);
+          return { success: false, message: 'Ошибка сети' };
+      }
+  };
+
   // Initialize Game Engines for each theme
   const durovEngine = useGameEngine({
     balance,
@@ -214,6 +235,7 @@ export default function App() {
         onClose={() => setShowDeposit(false)} 
         onDeposit={handleDeposit} 
         onWithdraw={handleWithdraw}
+        onActivatePromo={handleActivatePromo}
         currentCurrency={currency} 
       />
 
@@ -322,9 +344,9 @@ export default function App() {
              </AnimatePresence>
         </div>
         
-        {/* Background Atmosphere */}
-        <div className="absolute inset-0 z-0 pointer-events-none">
-             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-blue-500/5 rounded-full blur-[100px]" />
+        {/* Background Atmosphere - Optimized with Radial Gradient instead of blur */}
+        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[radial-gradient(circle,rgba(59,130,246,0.15)_0%,transparent_70%)]" />
         </div>
 
         {/* Game Container */}

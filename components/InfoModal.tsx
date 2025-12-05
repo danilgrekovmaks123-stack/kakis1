@@ -33,7 +33,7 @@ export default function InfoModal({ isOpen, onClose, theme }: InfoModalProps) {
           <div className="flex items-center justify-between p-6 border-b border-white/5 bg-[#232e3c]">
             <h2 className="text-2xl font-bold text-white flex items-center gap-2">
               <Trophy className="text-yellow-400" />
-              Game Rules & Paytable
+              Правила и Выплаты
             </h2>
             <button 
               onClick={onClose}
@@ -48,30 +48,30 @@ export default function InfoModal({ isOpen, onClose, theme }: InfoModalProps) {
             
             {/* General Rules */}
             <section>
-              <h3 className="text-lg font-bold text-blue-400 mb-3 uppercase tracking-wider">How to Play</h3>
+              <h3 className="text-lg font-bold text-blue-400 mb-3 uppercase tracking-wider">Как играть</h3>
               <ul className="space-y-2 text-gray-300 text-sm">
                 <li className="flex gap-2">
                   <span className="text-blue-400">•</span>
-                  Match 3, 4, or 5 symbols on a line to win.
+                  Соберите 3, 4 или 5 символов на линии для выигрыша.
                 </li>
                 <li className="flex gap-2">
                   <span className="text-blue-400">•</span>
-                  Lines pay left to right.
+                  Линии оплачиваются слева направо.
                 </li>
                 <li className="flex gap-2">
                   <span className="text-blue-400">•</span>
-                  5+ Coins trigger the Bonus Round.
+                  5+ Монет запускают Бонусную Игру.
                 </li>
                 <li className="flex gap-2">
                   <span className="text-blue-400">•</span>
-                  WILD substitutes for any symbol except Bonus Coins.
+                  WILD заменяет любой символ, кроме Бонусных Монет.
                 </li>
               </ul>
             </section>
 
             {/* Symbols Paytable */}
             <section>
-              <h3 className="text-lg font-bold text-yellow-400 mb-4 uppercase tracking-wider">Symbol Payouts</h3>
+              <h3 className="text-lg font-bold text-yellow-400 mb-4 uppercase tracking-wider">Таблица Выплат</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {Object.values(SymbolType).map((type) => {
                   const symbol = SYMBOL_CONFIG[type];
@@ -95,7 +95,7 @@ export default function InfoModal({ isOpen, onClose, theme }: InfoModalProps) {
                         <div className="font-bold text-white">{type === SymbolType.WILD ? 'WILD' : ''}</div>
                         <div className="text-xs text-gray-400">
                           {type === SymbolType.WILD 
-                            ? (theme === 'flour' ? 'Expands 2 slots' : 'Substitutes symbols') 
+                            ? (theme === 'flour' ? 'Расширяется на 2 клетки' : 'Заменяет символы') 
                             : `x${symbol.multiplier}`}
                         </div>
                       </div>
@@ -109,7 +109,7 @@ export default function InfoModal({ isOpen, onClose, theme }: InfoModalProps) {
             <section className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-2xl p-5 border border-white/5">
               <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
                 <Zap className="text-yellow-400" size={20} />
-                Special Features
+                Особенности
               </h3>
               
               <div className="space-y-4">
@@ -118,13 +118,13 @@ export default function InfoModal({ isOpen, onClose, theme }: InfoModalProps) {
                      <Star className="text-blue-400" />
                    </div>
                    <div>
-                     <h4 className="font-bold text-white">Bonus Game</h4>
+                     <h4 className="font-bold text-white">Бонусная Игра</h4>
                      <p className="text-xs text-gray-400 mt-1">
-                       Land 5 or more TON Coins to trigger the Hold & Win bonus round. 
-                       Start with 3 spins. Each new coin resets spins to 3.
-                       <span className="block text-yellow-400 font-bold mt-1">Collect total value of all coins at the end!</span>
-                       <span className="block text-red-400 font-bold mt-1">Red Coins (X): Multiply a random coin by 2x or 3x and spin away.</span>
-                       <span className="block text-yellow-500 font-bold mt-1">Yellow Coins (SUM): Collect the value of all visible coins.</span>
+                       Поймайте 5 или больше Монет, чтобы запустить бонус Hold & Win. 
+                       Начните с 3 спинов. Каждая новая монета сбрасывает счетчик спинов до 3.
+                       <span className="block text-yellow-400 font-bold mt-1">В конце вы забираете сумму всех монет!</span>
+                       <span className="block text-red-400 font-bold mt-1">Красные Монеты (X): Умножают случайную монету на x2 или x3.</span>
+                       <span className="block text-yellow-500 font-bold mt-1">Желтые Монеты (SUM): Собирают сумму всех видимых монет.</span>
                      </p>
                    </div>
                 </div>
@@ -137,9 +137,9 @@ export default function InfoModal({ isOpen, onClose, theme }: InfoModalProps) {
                        </div>
                      </div>
                      <div>
-                       <h4 className="font-bold text-white">Expanding Wild</h4>
+                       <h4 className="font-bold text-white">Расширяющийся Wild</h4>
                        <p className="text-xs text-gray-400 mt-1">
-                          In this theme, the WILD symbol expands vertically to cover 2 slots, increasing your chances of winning!
+                          В этой теме WILD символ расширяется вертикально, занимая 2 клетки, что увеличивает шансы на победу!
                        </p>
                      </div>
                   </div>
@@ -150,9 +150,9 @@ export default function InfoModal({ isOpen, onClose, theme }: InfoModalProps) {
                      <Gift className="text-purple-400" />
                    </div>
                    <div>
-                     <h4 className="font-bold text-white">Win Multipliers</h4>
+                     <h4 className="font-bold text-white">Множители Выигрыша</h4>
                      <p className="text-xs text-gray-400 mt-1">
-                       Match 4 symbols for 2x win multiplier. Match 5 symbols for 5x win multiplier!
+                       Соберите 4 символа для множителя выигрыша x2. Соберите 5 символов для множителя x5!
                      </p>
                    </div>
                 </div>
