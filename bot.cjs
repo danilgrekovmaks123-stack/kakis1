@@ -317,21 +317,7 @@ app.post('/api/create-invoice', async (req, res) => {
     }
 });
 
-// --- Test Endpoint ---
-app.post('/api/test/add-balance', (req, res) => {
-    const { userId, amount } = req.body;
-    if (!userId || !amount) return res.status(400).json({ error: 'Invalid params' });
-    
-    const newBalance = updateBalance(userId, amount);
-    logTransaction({
-        id: `test_deposit_${userId}_${Date.now()}`,
-        userId,
-        amount,
-        type: 'test_deposit',
-        status: 'completed'
-    });
-    res.json({ success: true, newBalance });
-});
+
 
 // --- Promo Code Logic ---
 const VALID_PROMOCODES = {
