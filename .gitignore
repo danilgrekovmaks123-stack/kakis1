@@ -15,9 +15,10 @@ dist-ssr
 # Environment variables
 .env
 
-# Database files (Ignored to prevent overwriting user data on deploy)
+# Database files and directories (Ignored to prevent overwriting user data on deploy)
 balances.json
 transactions.json
+data/
 
 # Editor directories and files
 .vscode/*

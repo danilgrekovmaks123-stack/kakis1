@@ -40,8 +40,15 @@ if (!CASINO_URL) console.warn('WebApp URL is missing (CASINO_URL)');
 const app = express();
 const bot = new Telegraf(token);
 const PORT = process.env.PORT || 3002;
-const DB_FILE = 'transactions.json';
-const BALANCES_FILE = 'balances.json';
+
+// Ensure data directory exists for persistent storage
+const DATA_DIR = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+const DB_FILE = path.join(DATA_DIR, 'transactions.json');
+const BALANCES_FILE = path.join(DATA_DIR, 'balances.json');
 
 app.use(cors());
 app.use(express.json());
