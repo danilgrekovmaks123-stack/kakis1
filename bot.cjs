@@ -138,9 +138,12 @@ function logTransaction(data) {
 
 // --- Bot Logic ---
 bot.start((ctx) => {
-    ctx.reply('GiftSlot', {
+    ctx.reply('Испытай удачу в GiftSlot\n🎁 Вводи промокоды на звезды и зарабатывай звезды каждый день', {
         reply_markup: {
-            inline_keyboard: [[{ text: 'Играть в GiftSlot', web_app: { url: CASINO_URL } }]]
+            inline_keyboard: [
+                [{ text: 'Играть в GiftSlot', web_app: { url: CASINO_URL } }],
+                [{ text: 'Наш канал', url: 'https://t.me/giftslotcom' }]
+            ]
         }
     });
 });
