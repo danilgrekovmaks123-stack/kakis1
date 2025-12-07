@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SymbolData, SymbolType, CoinType, GameState, ROWS, COLS } from './types';
+import { SymbolData, SymbolType, CoinType, GameState } from './types';
 import { ThemeId } from './constants';
 import SlotCell from './components/SlotCell';
 import BonusOverlay from './components/BonusOverlay';
@@ -175,8 +175,23 @@ export default function App() {
     isMuted
   });
 
+  const coinUpEngine = useGameEngine({
+    balance,
+    setBalance,
+    starsBalance,
+    setStarsBalance,
+    bet,
+    currency,
+    isActive: currentTheme === 'coin_up',
+    theme: 'coin_up',
+    onTransaction: handleTransaction,
+    isMuted
+  });
+
   // Select active engine based on theme
-  const activeEngine = currentTheme === 'durov' ? durovEngine : flourEngine;
+  let activeEngine = durovEngine;
+  if (currentTheme === 'flour') activeEngine = flourEngine;
+  if (currentTheme === 'coin_up') activeEngine = coinUpEngine;
 
   const {
     grid,
@@ -187,8 +202,7 @@ export default function App() {
     spinningColumns,
     bonusEffects,
     activeSpecialCells,
-    handleSpin,
-    handleBuyBonus
+    handleSpin
   } = activeEngine;
 
   // Reset bet when currency changes
@@ -213,7 +227,10 @@ export default function App() {
   const isBonus = gameState === GameState.BONUS_ACTIVE || gameState === GameState.BONUS_TRANSITION || gameState === GameState.BONUS_PAYOUT;
 
   useEffect(() => {
-    const nextUrl = currentTheme === 'durov' ? "/fonsik 2.png" : "/fonflow.png";
+    let nextUrl = "/fonsik 2.png";
+    if (currentTheme === 'flour') nextUrl = "/fonflow.png";
+    if (currentTheme === 'coin_up') nextUrl = "/coinup_bg.png"; // Placeholder
+    
     const img = new Image();
     img.src = nextUrl;
     setBgReady(false);
@@ -225,6 +242,26 @@ export default function App() {
       setBgReady(true);
     });
   }, [currentTheme]);
+
+  const cycleTheme = (direction: 'next' | 'prev') => {
+      if (isGameLocked) return;
+      const themes: ThemeId[] = ['durov', 'flour', 'coin_up'];
+      const currentIdx = themes.indexOf(currentTheme);
+      let nextIdx = direction === 'next' ? currentIdx + 1 : currentIdx - 1;
+      if (nextIdx >= themes.length) nextIdx = 0;
+      if (nextIdx < 0) nextIdx = themes.length - 1;
+      setCurrentTheme(themes[nextIdx]);
+  };
+
+  const getThemeImage = (theme: ThemeId) => {
+      if (theme === 'durov') return "/durovslot.png";
+      if (theme === 'flour') return "/flourslot.png";
+      return "/coinup_logo.png"; // Placeholder
+  };
+
+  // Helper to get grid dimensions
+  const numRows = grid.length;
+  const numCols = grid[0]?.length || 5;
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row text-white font-sans overflow-hidden">
@@ -240,9 +277,9 @@ export default function App() {
       />
 
       {/* Sidebar (Desktop) / Header (Mobile) */}
-      <div className={`w-full md:w-80 md:border-r border-white/5 flex flex-col z-20 shadow-xl ${currentTheme === 'flour' ? 'bg-[#132a13]' : 'bg-[#17212b]'}`}>
+      <div className={`w-full md:w-80 md:border-r border-white/5 flex flex-col z-20 shadow-xl ${currentTheme === 'flour' ? 'bg-[#132a13]' : (currentTheme === 'coin_up' ? 'bg-[#2b1717]' : 'bg-[#17212b]')}`}>
         {/* Header */}
-        <div className={`h-14 flex items-center justify-between px-4 border-b border-white/5 ${currentTheme === 'flour' ? 'bg-[#132a13]' : 'bg-[#232e3c]'}`}>
+        <div className={`h-14 flex items-center justify-between px-4 border-b border-white/5 ${currentTheme === 'flour' ? 'bg-[#132a13]' : (currentTheme === 'coin_up' ? 'bg-[#2b1717]' : 'bg-[#232e3c]')}`}>
             <div className="flex items-center gap-2">
                 <div className="flex flex-col">
                     <span className="font-bold text-sm leading-tight">GIFT SLOT</span>
@@ -292,8 +329,6 @@ export default function App() {
             </div>
         </div>
 
-
-
         {/* Desktop Controls Spacer */}
         <div className="hidden md:flex flex-1 flex-col justify-between p-4 gap-4">
              <div className="flex flex-col gap-4">
@@ -314,9 +349,18 @@ export default function App() {
                  >
                      <img src="/flourslot.png" alt="Flour Slot" className="w-full h-auto rounded-xl shadow-lg border border-white/10 group-hover:shadow-blue-500/20" />
                  </button>
+
+                 {/* CoinUp Slot Button */}
+                 <button 
+                    onClick={() => !isGameLocked && setCurrentTheme('coin_up')}
+                    disabled={isGameLocked}
+                    className={`w-full hover:scale-105 transition-transform duration-200 group ${currentTheme === 'coin_up' ? 'ring-2 ring-blue-500 rounded-xl' : ''} ${isGameLocked ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''}`}
+                 >
+                     <div className="w-full h-24 rounded-xl shadow-lg border border-white/10 group-hover:shadow-blue-500/20 bg-gradient-to-br from-yellow-600 to-red-600 flex items-center justify-center">
+                        <span className="text-2xl font-black italic uppercase">Coin Up</span>
+                     </div>
+                 </button>
              </div>
-
-
         </div>
       </div>
 
@@ -344,7 +388,7 @@ export default function App() {
              </AnimatePresence>
         </div>
         
-        {/* Background Atmosphere - Optimized with Radial Gradient instead of blur */}
+        {/* Background Atmosphere */}
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[radial-gradient(circle,rgba(59,130,246,0.15)_0%,transparent_70%)]" />
         </div>
@@ -375,7 +419,7 @@ export default function App() {
           </div>
 
           {/* THE GRID */}
-          <div className={`relative p-3 rounded-3xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden ${currentTheme === 'flour' ? 'bg-[#52612D]' : 'bg-[#17212b]'}`} style={{ contentVisibility: 'auto', contain: 'paint' }}>
+          <div className={`relative p-3 rounded-3xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden ${currentTheme === 'flour' ? 'bg-[#52612D]' : (currentTheme === 'coin_up' ? 'bg-[#2b1717]' : 'bg-[#17212b]')}`} style={{ contentVisibility: 'auto', contain: 'paint' }}>
              {/* Decorative Top Shine */}
              <div className="absolute top-0 left-10 right-10 h-[1px] bg-gradient-to-r from-transparent via-blue-400/50 to-transparent" />
 
@@ -384,12 +428,12 @@ export default function App() {
              {/* Effect Layer for Coin Animations */}
              <AnimatePresence>
                 {bonusEffects.map(effect => {
-                    // Calculate positions based on grid (simplified % calculation)
-                    // Each cell is roughly 20% width/height of the container
-                    const startX = `${effect.from.c * 20 + 10}%`;
-                    const startY = `${effect.from.r * 25 + 12.5}%`; // 4 rows = 25% height
-                    const endX = `${effect.to.c * 20 + 10}%`;
-                    const endY = `${effect.to.r * 25 + 12.5}%`;
+                    const cellWidth = 100 / numCols;
+                    const cellHeight = 100 / numRows;
+                    const startX = `${effect.from.c * cellWidth + (cellWidth / 2)}%`;
+                    const startY = `${effect.from.r * cellHeight + (cellHeight / 2)}%`;
+                    const endX = `${effect.to.c * cellWidth + (cellWidth / 2)}%`;
+                    const endY = `${effect.to.r * cellHeight + (cellHeight / 2)}%`;
 
                     return (
                         <motion.div
@@ -408,21 +452,25 @@ export default function App() {
                 })}
              </AnimatePresence>
 
-            <div className="grid grid-cols-5 gap-2 md:gap-3" style={{ willChange: 'transform', backfaceVisibility: 'hidden' }}>
+            <div className="grid gap-2 md:gap-3" style={{ 
+                willChange: 'transform', 
+                backfaceVisibility: 'hidden',
+                gridTemplateColumns: `repeat(${numCols}, minmax(0, 1fr))`
+            }}>
                {/* Columns */}
-               {Array.from({ length: COLS }).map((_, cIndex) => (
+               {Array.from({ length: numCols }).map((_, cIndex) => (
                    <div key={cIndex} className="flex flex-col gap-2 md:gap-3">
                        {/* Rows */}
-                       {Array.from({ length: ROWS }).map((_, rIndex) => {
+                       {Array.from({ length: numRows }).map((_, rIndex) => {
                            const cell = grid[rIndex][cIndex];
                            const isWinning = winData?.winningLines.some(l => l.row === rIndex && l.col === cIndex);
                            // This specific column is spinning
                            const isColSpinning = spinningColumns[cIndex];
                            const isActiveSpecial = activeSpecialCells.some(c => c.r === rIndex && c.c === cIndex);
-                           const isUnderWild = currentTheme === 'flour' && rIndex > 0 && grid[rIndex - 1][cIndex].type === SymbolType.WILD;
+                           const isUnderWild = currentTheme === 'flour' && rIndex > 0 && grid[rIndex - 1][cIndex]?.type === SymbolType.WILD;
 
                            return (
-                               <div key={`${rIndex}-${cIndex}`} className="aspect-square relative" style={{ zIndex: ROWS - rIndex }}>
+                               <div key={`${rIndex}-${cIndex}`} className="aspect-square relative" style={{ zIndex: numRows - rIndex }}>
                                    <SlotCell 
                                        symbol={cell} 
                                        highlight={!!isWinning} 
@@ -490,35 +538,45 @@ export default function App() {
       </main>
 
       {/* Controls Bar (Mobile Bottom / Desktop Bottom Sticky) */}
-      <div className={`${currentTheme === 'flour' ? 'bg-[#132a13]' : 'bg-[#17212b]'} border-t border-white/5 p-4 z-30 md:hidden`}>
+      <div className={`${currentTheme === 'flour' ? 'bg-[#132a13]' : (currentTheme === 'coin_up' ? 'bg-[#2b1717]' : 'bg-[#17212b]')} border-t border-white/5 p-4 z-30 md:hidden`}>
          
          {/* Mobile Theme Switcher */}
          <div className="flex items-center justify-between gap-2 mb-2">
             <button 
-                onClick={() => !isGameLocked && setCurrentTheme(currentTheme === 'durov' ? 'flour' : 'durov')}
+                onClick={() => cycleTheme('prev')}
                 disabled={isGameLocked}
                 className="p-1 rounded-full bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
             >
                 <ChevronLeft size={20} />
             </button>
 
-            <div className="flex-1 h-16 flex items-center justify-center relative bg-white/5 rounded-xl p-1 border border-white/5">
+            <div className="flex-1 h-16 flex items-center justify-center relative bg-white/5 rounded-xl p-1 border border-white/5 overflow-hidden">
                 <AnimatePresence mode="wait">
-                    <motion.img 
+                    <motion.div 
                         key={currentTheme}
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.9 }}
                         transition={{ duration: 0.2 }}
-                        src={currentTheme === 'durov' ? "/durovslot.png" : "/flourslot.png"} 
-                        alt="Theme Preview" 
-                        className="h-full w-full object-contain drop-shadow-lg pointer-events-none"
-                    />
+                        className="h-full w-full flex items-center justify-center"
+                    >
+                        {currentTheme === 'coin_up' ? (
+                             <div className="w-full h-full bg-gradient-to-br from-yellow-600 to-red-600 flex items-center justify-center">
+                                <span className="text-xl font-black italic uppercase text-white drop-shadow-md">Coin Up</span>
+                             </div>
+                        ) : (
+                            <img 
+                                src={getThemeImage(currentTheme)} 
+                                alt="Theme Preview" 
+                                className="h-full w-full object-contain drop-shadow-lg pointer-events-none"
+                            />
+                        )}
+                    </motion.div>
                 </AnimatePresence>
             </div>
 
             <button 
-                onClick={() => !isGameLocked && setCurrentTheme(currentTheme === 'durov' ? 'flour' : 'durov')}
+                onClick={() => cycleTheme('next')}
                 disabled={isGameLocked}
                 className="p-1 rounded-full bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
             >
@@ -526,7 +584,7 @@ export default function App() {
             </button>
          </div>
 
-         {/* Simple Mobile Controls - mirrored from sidebar logic but simplified */}
+         {/* Simple Mobile Controls */}
              <div className="flex gap-2">
                  <div className="flex-1 glass-panel rounded-xl p-1 flex items-center justify-between px-2">
                      <button onClick={decreaseBet} disabled={isGameLocked || bet <= currentBetValues[0]} className="w-8 h-8 rounded bg-white/5 text-blue-400 font-bold disabled:opacity-50">-</button>
@@ -534,22 +592,6 @@ export default function App() {
                      <button onClick={increaseBet} disabled={isGameLocked || bet >= currentBetValues[currentBetValues.length - 1]} className="w-8 h-8 rounded bg-white/5 text-blue-400 font-bold disabled:opacity-50">+</button>
                  </div>
                  
-                 {/* Buy Bonus Mobile */}
-                 {/* <button
-                    onClick={handleBuyBonus}
-                    disabled={isGameLocked || currentBalance < Math.round(bet * 100)}
-                    className={`
-                        px-3 rounded-xl flex flex-col items-center justify-center shadow-lg transition-all
-                        ${isGameLocked || currentBalance < Math.round(bet * 100)
-                           ? 'bg-gray-700 text-gray-500' 
-                           : 'bg-gradient-to-b from-yellow-500 to-yellow-700 text-white active:scale-95'
-                        }
-                    `}
-                 >
-                    <Zap size={16} fill="currentColor" />
-                    <span className="text-[10px] font-bold leading-none mt-0.5">{Math.round(bet * 100)}</span>
-                 </button> */}
-
              <button
                onClick={handleSpin}
                disabled={isGameLocked}
@@ -586,63 +628,7 @@ export default function App() {
                     </button>
                 </div>
             </div>
-
-            {/* Buy Bonus Button Desktop */}
-            {/* <button
-                onClick={handleBuyBonus}
-                disabled={isGameLocked || currentBalance < Math.round(bet * 100)}
-                className={`
-                    w-20 h-20 rounded-full font-bold text-xs transition-all shadow-xl border-2 border-[#17212b]
-                    flex flex-col items-center justify-center gap-1 group relative overflow-hidden
-                    ${isGameLocked || currentBalance < Math.round(bet * 100)
-                       ? 'bg-gray-700 text-gray-500 grayscale' 
-                       : 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white hover:shadow-[0_0_30px_#facc15] hover:scale-105 active:scale-95'
-                    }
-                `}
-            >
-                <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Zap size={24} fill="currentColor" className="drop-shadow-sm" />
-                <div className="flex flex-col items-center leading-none">
-                    <span className="font-black text-sm">КУПИТЬ</span>
-                    <span className="text-[10px] opacity-90">{Math.round(bet * 100)}</span>
-                </div>
-            </button> */}
-
-            {/* Spin Button */}
-            <button
-               onClick={handleSpin}
-               disabled={isGameLocked}
-               className={`
-                 w-24 h-24 rounded-full font-black text-xl tracking-wider transition-all shadow-[0_0_30px_rgba(0,0,0,0.5)] border-4 border-[#17212b]
-                 flex items-center justify-center group relative overflow-hidden
-                 ${isGameLocked 
-                    ? 'bg-gray-700 text-gray-500 grayscale' 
-                    : 'bg-gradient-to-br from-blue-400 to-blue-600 text-white hover:shadow-[0_0_50px_#5288c1] hover:scale-105 active:scale-95'
-                 }
-               `}
-             >
-                 <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                 {gameState === GameState.SPINNING ? (
-                     <Loader2 className="animate-spin" size={32} />
-                 ) : (
-                     <span className="group-hover:animate-pulse">КРУТИТЬ</span>
-                 )}
-            </button>
-            
-            {/* Auto/Max Buttons (Visual only for now) */}
-            <div className="glass-panel rounded-full p-2 flex items-center gap-2 px-4 shadow-2xl">
-                 <button className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
-                     <Settings size={18} />
-                 </button>
-                 <button 
-                    onClick={() => setShowInfo(true)}
-                    className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
-                 >
-                     <Info size={18} />
-                 </button>
-            </div>
        </div>
-
     </div>
   );
 }

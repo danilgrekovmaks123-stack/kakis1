@@ -2,7 +2,23 @@ import React from 'react';
 import { SymbolType, CoinType } from './types';
 import { Shield, Bot, Star, Zap, Hexagon, Gem } from 'lucide-react';
 
-export type ThemeId = 'durov' | 'flour';
+export type ThemeId = 'durov' | 'flour' | 'coin_up';
+
+export const COIN_UP_WEIGHTS = [
+  { type: SymbolType.CU_COIN, weight: 20 }, // Bonus symbol
+  { type: SymbolType.CU_A, weight: 20 }, // Regular symbols (no payout)
+  { type: SymbolType.CU_K, weight: 20 },
+  { type: SymbolType.CU_Q, weight: 20 },
+  { type: SymbolType.CU_J, weight: 20 },
+];
+
+export const COIN_UP_BONUS_WEIGHTS = [
+  { type: SymbolType.EMPTY, weight: 80 },
+  { type: SymbolType.CU_COIN, weight: 10 },
+  { type: SymbolType.CU_COIN_UP, weight: 2 },
+  { type: SymbolType.CU_MULTI_UP, weight: 2 },
+  { type: SymbolType.CU_MYSTERY, weight: 1 },
+];
 
 export const THEME_IMAGES: Record<ThemeId, Record<string, string>> = {
   durov: {
@@ -34,10 +50,34 @@ export const THEME_IMAGES: Record<ThemeId, Record<string, string>> = {
     'COIN_STRIP': '/coinflow.png',
     'ANIMATION_PLANE': '/rediska.tgs',
     'ANIMATION_WILD': '/chpic.su_-_Loving_Gift_by_EmojiRu_Bot_006.tgs'
+  },
+  coin_up: {
+    [SymbolType.CU_A]: '/coinup/A.png',
+    [SymbolType.CU_K]: '/coinup/K.png',
+    [SymbolType.CU_Q]: '/coinup/Q.png',
+    [SymbolType.CU_J]: '/coinup/J.png',
+    [SymbolType.CU_COIN]: '/moneta.svg', // Reuse for now
+    [SymbolType.CU_COIN_UP]: '/coinup/coin_up.png',
+    [SymbolType.CU_MULTI_UP]: '/coinup/multi_up.png',
+    [SymbolType.CU_MYSTERY]: '/coinup/mystery.png',
+    'COIN_STRIP': '/moneta.svg',
+    'ANIMATION_PLANE': '',
+    'ANIMATION_WILD': ''
   }
 };
 
 export const SYMBOL_CONFIG: Record<SymbolType, { color: string, icon?: React.ReactNode, imageUrl?: string, label?: string, multiplier: number }> = {
+  // CoinUp
+  [SymbolType.CU_A]: { color: '#FFD700', label: 'A', multiplier: 0 },
+  [SymbolType.CU_K]: { color: '#C0C0C0', label: 'K', multiplier: 0 },
+  [SymbolType.CU_Q]: { color: '#CD7F32', label: 'Q', multiplier: 0 },
+  [SymbolType.CU_J]: { color: '#B87333', label: 'J', multiplier: 0 },
+  [SymbolType.CU_COIN]: { color: '#FFD700', label: 'COIN', multiplier: 0 },
+  [SymbolType.CU_COIN_UP]: { color: '#FF4500', label: 'UP', multiplier: 0 },
+  [SymbolType.CU_MULTI_UP]: { color: '#FF0000', label: 'MULTI', multiplier: 0 },
+  [SymbolType.CU_MYSTERY]: { color: '#800080', label: '???', multiplier: 0 },
+  [SymbolType.EMPTY]: { color: 'transparent', label: '', multiplier: 0 },
+
   // Low
   [SymbolType.PLANE]: { 
     color: '#5cabeb', 

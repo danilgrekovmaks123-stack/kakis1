@@ -16,7 +16,18 @@ export enum SymbolType {
   
   // Special
   WILD = 'WILD',
-  COIN = 'COIN'
+  COIN = 'COIN',
+  EMPTY = 'EMPTY',
+
+  // CoinUp Specific
+  CU_A = 'CU_A',
+  CU_K = 'CU_K',
+  CU_Q = 'CU_Q',
+  CU_J = 'CU_J',
+  CU_COIN = 'CU_COIN',
+  CU_COIN_UP = 'CU_COIN_UP',
+  CU_MULTI_UP = 'CU_MULTI_UP',
+  CU_MYSTERY = 'CU_MYSTERY'
 }
 
 export enum CoinType {

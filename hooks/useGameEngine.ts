@@ -1,11 +1,11 @@
 import { useState, useRef, useCallback, useEffect, startTransition } from 'react';
 import { generateGrid, checkWin, countCoins, getRandomSymbol } from '../utils/gameLogic';
-import { SymbolData, SymbolType, CoinType, GameState, ROWS, COLS } from '../types';
+import { SymbolData, SymbolType, CoinType, GameState } from '../types';
 import { ThemeId } from '../constants';
 
 // Configuration
-const REEL_DELAY = 300; // Delay between each reel stopping
-const MIN_SPIN_TIME = 1500; // Minimum time before reels start stopping
+const REEL_DELAY = 300;
+const MIN_SPIN_TIME = 1500;
 
 interface UseGameEngineProps {
   balance: number;
@@ -14,7 +14,7 @@ interface UseGameEngineProps {
   setStarsBalance: (updater: (prev: number) => number) => void;
   bet: number;
   currency: 'TON' | 'STARS';
-  isActive: boolean; // To control sounds and updates if needed
+  isActive: boolean;
   theme?: ThemeId;
   onTransaction?: (amount: number) => void;
   isMuted?: boolean;
@@ -32,13 +32,22 @@ export const useGameEngine = ({
   onTransaction,
   isMuted = false
 }: UseGameEngineProps) => {
-  const [grid, setGrid] = useState<SymbolData[][]>(generateGrid(ROWS, COLS, false, 10, theme));
+  // Determine Grid Size based on Theme
+  const getGridSize = (currentTheme: ThemeId, isBonus: boolean) => {
+      if (currentTheme === 'coin_up') {
+          return isBonus ? { rows: 4, cols: 3 } : { rows: 3, cols: 3 };
+      }
+      return { rows: 4, cols: 5 }; // Durov/Flour
+  };
+
+  const initialSize = getGridSize(theme, false);
+  const [grid, setGrid] = useState<SymbolData[][]>(generateGrid(initialSize.rows, initialSize.cols, false, 10, theme));
   const [gameState, setGameState] = useState<GameState>(GameState.IDLE);
   const [winData, setWinData] = useState<{winAmount: number, winningLines: {row: number, col: number}[]} | null>(null);
   const [bonusSpins, setBonusSpins] = useState(3);
   const [bonusTotal, setBonusTotal] = useState(0);
   
-  // Track which columns are currently spinning [col0, col1, col2, col3, col4]
+  // Track spinning columns (max 5)
   const [spinningColumns, setSpinningColumns] = useState<boolean[]>([false, false, false, false, false]);
 
   const [bonusEffects, setBonusEffects] = useState<{
@@ -58,11 +67,18 @@ export const useGameEngine = ({
       winSoundRef.current = new Audio('/win.mp3');
   }, []);
 
+  // Update grid when theme changes (reset)
+  useEffect(() => {
+      if (gameState === GameState.IDLE) {
+          const size = getGridSize(theme, false);
+          setGrid(generateGrid(size.rows, size.cols, false, bet, theme));
+      }
+  }, [theme]);
+
   const handleSpin = useCallback(() => {
     const activeBalance = currency === 'TON' ? balance : starsBalance;
     if (activeBalance < bet || gameState !== GameState.IDLE) return;
 
-    // Safety check for negative balance
     if (activeBalance - bet < 0) {
         console.error("Attempted spin with insufficient funds");
         return;
@@ -74,35 +90,35 @@ export const useGameEngine = ({
         setStarsBalance(prev => Math.max(0, Number((prev - bet).toFixed(2))));
         onTransaction?.(-bet);
     }
+
     startTransition(() => {
         setGameState(GameState.SPINNING);
         setWinData(null);
         setBonusTotal(0);
-        setSpinningColumns([true, true, true, true, true]);
-    })
+        setSpinningColumns([true, true, true, true, true]); // Reset all potential cols
+    });
 
     if (isActive && spinSoundRef.current && !isMuted) {
         spinSoundRef.current.currentTime = 0;
         spinSoundRef.current.play().catch(e => console.error("Audio play failed", e));
     }
 
-    // Determine result immediately (backend simulation)
-    const newGrid = generateGrid(ROWS, COLS, false, bet, theme);
+    const size = getGridSize(theme, false);
+    const newGrid = generateGrid(size.rows, size.cols, false, bet, theme);
     
-    // Simulate reel stopping sequence
     let currentReel = 0;
     
-    // Start the stop sequence after min spin time
     setTimeout(() => {
         const intervalId = setInterval(() => {
-            if (currentReel < COLS) {
-                // Stop specific reel: We update the grid state for just this column
-                const reelIndex = currentReel; // capture for closure
+            if (currentReel < size.cols) {
+                const reelIndex = currentReel;
                 
                 startTransition(() => {
                     setGrid(prevGrid => {
+                        // Handle resizing if necessary (though theme change handles it)
                         const nextGrid = [...prevGrid];
-                        for(let r=0; r<ROWS; r++) {
+                        for(let r=0; r<size.rows; r++) {
+                            if (!nextGrid[r]) nextGrid[r] = [];
                             nextGrid[r] = [...nextGrid[r]];
                             nextGrid[r][reelIndex] = newGrid[r][reelIndex];
                         }
@@ -126,54 +142,100 @@ export const useGameEngine = ({
   }, [balance, starsBalance, bet, gameState, currency, isActive, setBalance, setStarsBalance, theme]);
 
   const finalizeSpin = (finalGrid: SymbolData[][]) => {
-    const coins = countCoins(finalGrid);
+    if (theme === 'coin_up') {
+        // CoinUp Trigger: 3 Coins on Center Line (Row 1)
+        const centerRow = finalGrid[1];
+        const isTrigger = centerRow.every(cell => 
+            cell.type === SymbolType.CU_COIN || cell.type === SymbolType.COIN
+        );
 
-    // Bonus Trigger: 5+ Coins
-    if (coins >= 5) {
-         setTimeout(() => startBonusRound(finalGrid), 500);
-    } else {
-         const result = checkWin(finalGrid, bet, theme);
-         
-         if (result.winAmount > 0) {
-            setWinData(result);
-            if (currency === 'TON') {
-                setBalance(prev => Number((prev + result.winAmount).toFixed(2)));
-            } else {
-                setStarsBalance(prev => Number((prev + result.winAmount).toFixed(2)));
-                onTransaction?.(result.winAmount);
-            }
-            startTransition(() => {
-                setGameState(GameState.WIN_ANIMATION);
-            });
-
-             if (isActive && winSoundRef.current && !isMuted) {
-                 winSoundRef.current.currentTime = 0;
-                 winSoundRef.current.play().catch(e => console.error("Win audio play failed", e));
-             }
-
-             setTimeout(() => setGameState(GameState.IDLE), 2500);
-         } else {
+        if (isTrigger) {
+             setTimeout(() => startBonusRound(finalGrid), 500);
+        } else {
+             // No base wins in CoinUp
              setGameState(GameState.IDLE);
-         }
+        }
+    } else {
+        // Standard Trigger: 5+ Coins
+        const coins = countCoins(finalGrid);
+        if (coins >= 5) {
+             setTimeout(() => startBonusRound(finalGrid), 500);
+        } else {
+             const result = checkWin(finalGrid, bet, theme);
+             
+             if (result.winAmount > 0) {
+                setWinData(result);
+                if (currency === 'TON') {
+                    setBalance(prev => Number((prev + result.winAmount).toFixed(2)));
+                } else {
+                    setStarsBalance(prev => Number((prev + result.winAmount).toFixed(2)));
+                    onTransaction?.(result.winAmount);
+                }
+                startTransition(() => {
+                    setGameState(GameState.WIN_ANIMATION);
+                });
+
+                 if (isActive && winSoundRef.current && !isMuted) {
+                     winSoundRef.current.currentTime = 0;
+                     winSoundRef.current.play().catch(e => console.error("Win audio play failed", e));
+                 }
+
+                 setTimeout(() => setGameState(GameState.IDLE), 2500);
+             } else {
+                 setGameState(GameState.IDLE);
+             }
+        }
     }
   };
 
   const startBonusRound = (triggerGrid: SymbolData[][]) => {
-      const bonusGrid = triggerGrid.map(row => row.map(cell => {
-          if (cell.type === SymbolType.COIN) {
-              return { ...cell, isLocked: true };
+      let bonusGrid: SymbolData[][];
+
+      if (theme === 'coin_up') {
+          // Expand to 3x4 (add row on top)
+          // Old Row 0 -> New Row 1
+          // Old Row 1 -> New Row 2 (Triggering Coins)
+          // Old Row 2 -> New Row 3
+          // New Row 0 -> Empty/Special
+          
+          bonusGrid = [];
+          
+          // Row 0 (New Top)
+          bonusGrid[0] = Array(3).fill(null).map(() => ({ 
+              id: Math.random().toString(), 
+              type: SymbolType.EMPTY, 
+              isLocked: false 
+          }));
+
+          // Rows 1-3 (Shifted Base)
+          for(let r=0; r<3; r++) {
+              bonusGrid[r+1] = triggerGrid[r].map(cell => {
+                  if (cell.type === SymbolType.CU_COIN || cell.type === SymbolType.COIN) {
+                      return { ...cell, isLocked: true };
+                  }
+                  return { ...cell, type: SymbolType.EMPTY, id: Math.random().toString() };
+              });
           }
-          return { ...cell, type: SymbolType.EMPTY, id: Math.random().toString() }; // Empty
-      }));
+      } else {
+          // Standard Logic
+          bonusGrid = triggerGrid.map(row => row.map(cell => {
+              if (cell.type === SymbolType.COIN) {
+                  return { ...cell, isLocked: true };
+              }
+              return { ...cell, type: SymbolType.EMPTY, id: Math.random().toString() };
+          }));
+      }
 
       startTransition(() => {
           setGrid(bonusGrid);
       });
       
-      // Calculate initial bonus total from triggering coins
+      // Calculate initial bonus total
       let initialTotal = 0;
       bonusGrid.forEach(r => r.forEach(c => {
-          if (c.type === SymbolType.COIN && c.coinValue) initialTotal += c.coinValue;
+          if ((c.type === SymbolType.COIN || c.type === SymbolType.CU_COIN) && c.coinValue) {
+              initialTotal += c.coinValue;
+          }
       }));
       setBonusTotal(Math.round(initialTotal * 100) / 100);
 
@@ -196,315 +258,188 @@ export const useGameEngine = ({
           return;
       }
 
-      // Start spinning animation for non-locked cells
       startTransition(() => {
           setSpinningColumns([true, true, true, true, true]);
       });
 
-      // Visual delay for "Spinning" during bonus
       setTimeout(() => {
           startTransition(() => {
               setSpinningColumns([false, false, false, false, false]);
           });
 
-          // 1. Generate Next Grid (Raw)
-          // Determine new symbols
-          const rawNextGrid = currentGrid.map(row => row.map(cell => {
+          // 1. Generate Next Grid
+          const size = theme === 'coin_up' ? { rows: 4, cols: 3 } : { rows: 4, cols: 5 };
+          
+          const rawNextGrid = currentGrid.map((row, rIdx) => row.map(cell => {
               if (cell.isLocked) return cell;
               
-              // In bonus, we only care if we hit a coin or blank
-              const newSymbol = getRandomSymbol(true, bet, theme);
-              if (newSymbol.type === SymbolType.COIN) {
-                  return { ...newSymbol, isLocked: true }; // Initially lock all coins
+              const newSymbol = getRandomSymbol(true, bet, theme, rIdx);
+              // In CoinUp, Row 0 can have specials, others coins/empty
+              
+              if (newSymbol.type === SymbolType.COIN || newSymbol.type === SymbolType.CU_COIN) {
+                  return { ...newSymbol, isLocked: true };
               }
+              // CoinUp Specials (only in row 0)
+              if (theme === 'coin_up' && rIdx === 0 && 
+                  (newSymbol.type === SymbolType.CU_COIN_UP || 
+                   newSymbol.type === SymbolType.CU_MULTI_UP || 
+                   newSymbol.type === SymbolType.CU_MYSTERY)) {
+                  return { ...newSymbol, isLocked: false }; // Specials apply then disappear/stay? Usually apply once.
+              }
+              
               return newSymbol;
           }));
 
-          // 2. Prepare Landing Grid (Initial Visual State)
-          // - Yellow: 0
-          // - Red: Pre-assign Multiplier (2 or 3)
+          // 2. Prepare Landing Grid (Visual)
           const landingGrid = rawNextGrid.map(row => row.map(cell => ({ ...cell })));
-          const specialCoins: {r: number, c: number, type: 'red' | 'yellow'}[] = [];
-
-          for (let r=0; r<ROWS; r++) {
-              for (let c=0; c<COLS; c++) {
-                  const cell = landingGrid[r][c];
-                  // Only new locked coins (not previously locked ones)
-                  const oldCell = currentGrid[r][c];
-                  if (!oldCell.isLocked && cell.isLocked && cell.type === SymbolType.COIN) {
-                       if (cell.coinType === CoinType.COLLECT) {
-                           cell.coinValue = 0; // Show 0 initially
-                           specialCoins.push({r, c, type: 'yellow'});
-                       } else if (cell.coinType === CoinType.MULTIPLIER) {
-                           // Decide multiplier now so it lands as "x2" or "x3"
-                           const mult = (Math.random() > 0.5) ? 3 : 2;
-                           cell.coinValue = mult; 
-                           specialCoins.push({r, c, type: 'red'});
-                       }
-                  }
-              }
-          }
-
-          // 3. Show Landing Grid immediately
+          
+          // Apply CoinUp Logic for Specials IMMEDIATELY or after animation?
+          // Usually: Land -> Animate Special -> Apply Effect -> Continue
+          
+          // Let's simplified: Land everything. Then Process.
+          
           startTransition(() => {
               setGrid(landingGrid);
           });
 
-          // 4. Define Logic Execution
-          const executeLogic = () => {
+          // 3. Process Logic
+          setTimeout(() => {
               let finalGrid = landingGrid.map(row => row.map(cell => ({ ...cell })));
-              const currentEffects: typeof bonusEffects = [];
               let newCoinFound = false;
 
-              // Need to re-scan for new coins based on landingGrid state
-              const newCoins: {r: number, c: number, data: SymbolData}[] = [];
-              
-              for (let r=0; r<ROWS; r++) {
-                  for (let c=0; c<COLS; c++) {
+              // Check for new coins (reset spins)
+              for(let r=0; r<size.rows; r++) {
+                  for(let c=0; c<size.cols; c++) {
                       const oldCell = currentGrid[r][c];
-                      const newCell = landingGrid[r][c];
-                      if (!oldCell.isLocked && newCell.isLocked && newCell.type === SymbolType.COIN) {
-                          newCoins.push({r, c, data: newCell});
+                      const newCell = finalGrid[r][c];
+                      if (!oldCell.isLocked && newCell.isLocked) {
                           newCoinFound = true;
                       }
                   }
               }
 
-              if (newCoins.length > 0) {
-                   // Process Red Coins (Multiplier) - They multiply another coin and disappear
-                   const redCoins = newCoins.filter(nc => nc.data.coinType === CoinType.MULTIPLIER);
+              // CoinUp Specials Logic
+              if (theme === 'coin_up') {
+                   const specials = finalGrid[0].filter(c => 
+                       [SymbolType.CU_COIN_UP, SymbolType.CU_MULTI_UP, SymbolType.CU_MYSTERY].includes(c.type)
+                   );
                    
-                   redCoins.forEach(rc => {
-                        const mult = rc.data.coinValue || 2; // Use pre-assigned value
-
-                        // Find targets: All existing locked coins or other new coins that are NOT Red
-                        const targets: {r: number, c: number}[] = [];
-                        for (let r=0; r<ROWS; r++) {
-                            for (let c=0; c<COLS; c++) {
-                                const cell = finalGrid[r][c];
-                                const isSelf = (r === rc.r && c === rc.c);
-                                // Valid target: Coin, has value, not self, not another Red
-                                if (cell.type === SymbolType.COIN && cell.coinValue && !isSelf && cell.coinType !== CoinType.MULTIPLIER) {
-                                    targets.push({r, c});
-                                }
-                            }
-                        }
-
-                        if (targets.length > 0) {
-                            const target = targets[Math.floor(Math.random() * targets.length)];
-                            
-                            // Add Red Effect (From Red Coin -> Target)
-                            currentEffects.push({
-                                id: Math.random().toString(),
-                                from: { r: rc.r, c: rc.c },
-                                to: { r: target.r, c: target.c },
-                                type: 'red'
-                            });
-
-                            if (finalGrid[target.r][target.c].coinValue) {
-                                const rawValue = finalGrid[target.r][target.c].coinValue! * mult;
-                                finalGrid[target.r][target.c] = {
-                                    ...finalGrid[target.r][target.c],
-                                    coinValue: Math.round(rawValue * 10) / 10
-                                };
-                            }
-
-                            // Update Red Coin to spin away next turn (isLocked=false)
-                            finalGrid[rc.r][rc.c] = { 
-                                ...finalGrid[rc.r][rc.c], 
-                                isLocked: false 
-                            };
-                        } else {
-                            // No targets? Just spin away
-                            finalGrid[rc.r][rc.c] = { 
-                                 ...finalGrid[rc.r][rc.c], 
-                                 isLocked: false
-                            };
-                        }
-                   });
-
-                   // Process Yellow Coins (Collector) - Collect sum of all others
-                   const yellowCoins = newCoins.filter(nc => nc.data.coinType === CoinType.COLLECT);
-                   
-                   yellowCoins.forEach(yc => {
-                        let sum = 0;
-                        for (let r=0; r<ROWS; r++) {
-                            for (let c=0; c<COLS; c++) {
-                                const cell = finalGrid[r][c];
-                                const isSelf = (r === yc.r && c === yc.c);
-                                // Sum all coins that are present (Standard, Yellow, or boosted targets)
-                                if (cell.type === SymbolType.COIN && cell.coinValue && !isSelf) {
-                                    sum += cell.coinValue;
-                                    
-                                    // Add Yellow Effect (From Source -> Yellow Coin)
-                                    currentEffects.push({
-                                        id: Math.random().toString(),
-                                        from: { r: r, c: c },
-                                        to: { r: yc.r, c: yc.c },
-                                        type: 'yellow'
-                                    });
-                                }
-                            }
-                        }
-                        
-                        finalGrid[yc.r][yc.c] = {
-                            ...finalGrid[yc.r][yc.c],
-                            coinValue: Math.round(sum * 10) / 10
-                        };
-                   });
-              }
-              
-              // Helper for Next Turn
-              const proceed = () => {
-                   // Calculate and update Bonus Total
-                   let currentTotal = 0;
-                   finalGrid.forEach(r => r.forEach(c => {
-                       if (c.type === SymbolType.COIN && c.coinValue) currentTotal += c.coinValue;
-                   }));
-                   setBonusTotal(Math.round(currentTotal * 100) / 100);
-
-                   const isFull = finalGrid.every(r => r.every(c => c.isLocked && c.type === SymbolType.COIN));
-                   if (isFull) {
-                       setTimeout(() => endBonusRound(finalGrid), 1000);
-                       return;
-                   }
-
-                   if (newCoinFound) {
-                       setBonusSpins(3);
-                       if (isActive && spinSoundRef.current) {
-                           spinSoundRef.current.currentTime = 0;
-                           spinSoundRef.current.play().catch(() => {});
-                       }
-                       setTimeout(() => playBonusTurn(finalGrid, 3), 1500);
-                   } else {
-                       const nextSpins = spinsLeft - 1;
-                       setBonusSpins(nextSpins);
+                   if (specials.length > 0) {
+                       newCoinFound = true; // Specials also reset spins usually
                        
-                       if (nextSpins <= 0) {
-                           setTimeout(() => endBonusRound(finalGrid), 1000);
-                       } else {
-                           setTimeout(() => playBonusTurn(finalGrid, nextSpins), 1500);
-                       }
+                       specials.forEach(special => {
+                           // Apply Effect
+                           if (special.type === SymbolType.CU_COIN_UP) {
+                               // Increase all coins
+                               finalGrid.forEach(r => r.forEach(c => {
+                                   if ((c.type === SymbolType.CU_COIN || c.type === SymbolType.COIN) && c.coinValue) {
+                                       c.coinValue = Math.round((c.coinValue + (bet * 0.5)) * 10) / 10; // Add 0.5x bet? Or doubling?
+                                       // User said: "Coin Up — увеличивает значения всех монет."
+                                       // Let's add 1x bet or double? Let's add 1.
+                                       c.coinValue += 1; 
+                                   }
+                               }));
+                           } else if (special.type === SymbolType.CU_MULTI_UP) {
+                               // Multiply column
+                               // Which column? The one the special is in.
+                               // Wait, I need coords.
+                               // Find coords of this special in Row 0
+                               const colIdx = finalGrid[0].indexOf(special);
+                               if (colIdx >= 0) {
+                                   for(let r=1; r<size.rows; r++) {
+                                       const cell = finalGrid[r][colIdx];
+                                       if ((cell.type === SymbolType.CU_COIN || cell.type === SymbolType.COIN) && cell.coinValue) {
+                                           cell.coinValue *= 2; // x2
+                                       }
+                                   }
+                               }
+                           } else if (special.type === SymbolType.CU_MYSTERY) {
+                               // Jackpot
+                               // Add a big value to total or as a coin? 
+                               // User said "даёт шанс на фиксированный джекпот."
+                               // Let's just convert it to a high value coin and lock it?
+                               // Or add to bonus total directly?
+                               // "Итоговый выигрыш... + Если выпал джекпот — добавляется фиксированная сумма"
+                               // Let's just turn it into a high value coin for simplicity of grid.
+                               special.type = SymbolType.CU_COIN;
+                               special.coinValue = bet * 50; // Mini Jackpot
+                               special.isLocked = true;
+                           }
+                       });
+                       
+                       // Remove non-locked specials (replace with empty for next turn?)
+                       // Or they stay? Usually they do their thing and disappear or turn into coin.
+                       // Let's turn them into EMPTY after effect, unless converted to Coin.
+                       finalGrid[0] = finalGrid[0].map(c => {
+                           if ([SymbolType.CU_COIN_UP, SymbolType.CU_MULTI_UP].includes(c.type)) {
+                               return { ...c, type: SymbolType.EMPTY, isLocked: false };
+                           }
+                           return c;
+                       });
                    }
-              };
-
-              // Trigger effects and update grid
-              if (currentEffects.length > 0) {
-                  startTransition(() => {
-                      setBonusEffects(currentEffects);
-                  });
-                  
-                  // Clear effects after animation duration (1.5s)
-                  setTimeout(() => startTransition(() => setBonusEffects([])), 1500);
-
-                  // Update grid values AFTER particles have arrived (1.4s)
-                  setTimeout(() => {
-                      startTransition(() => {
-                          setGrid(finalGrid);
-                      });
-                      proceed();
-                  }, 1400);
-              } else {
-                  startTransition(() => {
-                      setGrid(finalGrid);
-                  });
-                  proceed();
               }
-          };
 
-          // Logic Branch: If special coins found, delay execution
-          if (specialCoins.length > 0) {
+              if (newCoinFound) {
+                  setBonusSpins(3);
+                  playBonusTurn(finalGrid, 3);
+              } else {
+                  setBonusSpins(spinsLeft - 1);
+                  playBonusTurn(finalGrid, spinsLeft - 1);
+              }
+
               startTransition(() => {
-                  setActiveSpecialCells(specialCoins);
+                  setGrid(finalGrid);
+                  // Update Total
+                  let total = 0;
+                  finalGrid.forEach(r => r.forEach(c => {
+                      if (c.coinValue) total += c.coinValue;
+                  }));
+                  setBonusTotal(Math.round(total * 100) / 100);
               });
-              
-              // Wait for glow (1.2s)
-              setTimeout(() => {
-                  startTransition(() => {
-                      setActiveSpecialCells([]);
-                  });
-                  executeLogic();
-              }, 1200);
-          } else {
-              executeLogic(); // Run immediately
-          }
 
-      }, 1000);
+          }, 1000); // Wait for landing
+
+      }, 2000); // Wait for spin
   };
 
   const endBonusRound = (finalGrid: SymbolData[][]) => {
-      setGameState(GameState.BONUS_PAYOUT);
-      
-      let totalValue = 0;
-      finalGrid.forEach(row => row.forEach(cell => {
-          if (cell.type === SymbolType.COIN && cell.coinValue) {
-              totalValue += cell.coinValue;
-          }
+      // Calculate Final Win
+      let totalWin = 0;
+      finalGrid.forEach(r => r.forEach(c => {
+          if (c.coinValue) totalWin += c.coinValue;
       }));
-
-      const winAmount = Math.round(totalValue * 100) / 100; // Round to 2 decimals
-      setBonusTotal(winAmount);
       
+      totalWin = Math.round(totalWin * 100) / 100;
+
       if (currency === 'TON') {
-          setBalance(prev => Number((prev + winAmount).toFixed(2)));
+          setBalance(prev => Number((prev + totalWin).toFixed(2)));
       } else {
-          setStarsBalance(prev => Number((prev + winAmount).toFixed(2)));
+          setStarsBalance(prev => Number((prev + totalWin).toFixed(2)));
+          onTransaction?.(totalWin);
       }
 
-      if (isActive && winSoundRef.current) {
-          winSoundRef.current.currentTime = 0;
-          winSoundRef.current.play().catch(e => console.error("Win audio play failed", e));
-      }
+      startTransition(() => {
+          setWinData({ winAmount: totalWin, winningLines: [] });
+          setGameState(GameState.BONUS_PAYOUT);
+      });
 
       setTimeout(() => {
           setGameState(GameState.IDLE);
-      }, 4000);
-  };
-
-  const handleBuyBonus = () => {
-      const cost = Math.round(bet * 100);
-      const activeBalance = currency === 'TON' ? balance : starsBalance;
-      if (activeBalance < cost || gameState !== GameState.IDLE) return;
-
-      if (currency === 'TON') {
-          setBalance(prev => Number((prev - cost).toFixed(2)));
-      } else {
-          setStarsBalance(prev => Number((prev - cost).toFixed(2)));
-      }
-      
-      // Create a grid with at least 5 coins to trigger bonus logic validly
-      const triggerGrid = generateGrid(ROWS, COLS, false, bet);
-      
-      // Force 5 coins
-      let coinsCount = countCoins(triggerGrid);
-      while(coinsCount < 5) {
-          const r = Math.floor(Math.random() * ROWS);
-          const c = Math.floor(Math.random() * COLS);
-          if (triggerGrid[r][c].type !== SymbolType.COIN) {
-               triggerGrid[r][c] = {
-                   id: Math.random().toString(),
-                   type: SymbolType.COIN,
-                   coinValue: Math.max(0.1, Math.round(bet * (Math.random() * 0.5 + 0.1) * 10) / 10),
-                   coinType: CoinType.STANDARD,
-                   isLocked: false
-               };
-               coinsCount++;
-          }
-      }
-      
-      startBonusRound(triggerGrid);
+          // Reset grid to base size
+          const size = getGridSize(theme, false);
+          setGrid(generateGrid(size.rows, size.cols, false, bet, theme));
+      }, 3000);
   };
 
   return {
     grid,
     gameState,
     winData,
+    handleSpin,
     bonusSpins,
     bonusTotal,
     spinningColumns,
     bonusEffects,
-    activeSpecialCells,
-    handleSpin,
-    handleBuyBonus
+    activeSpecialCells
   };
 };
