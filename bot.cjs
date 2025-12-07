@@ -152,7 +152,7 @@ bot.start((ctx) => {
 bot.on('pre_checkout_query', async (ctx) => {
     await ctx.answerPreCheckoutQuery(true).catch(() => {});
     // Notify user that payment is being processed (as requested)
-    await ctx.reply('⏳ Обработка вашего подарка...').catch(() => {});
+    await bot.telegram.sendMessage(ctx.from.id, '⏳ Обработка вашего подарка...').catch(() => {});
 });
 
 // Successful Payment Handler
@@ -317,7 +317,21 @@ app.post('/api/create-invoice', async (req, res) => {
     }
 });
 
-
+// --- Test Endpoint ---
+app.post('/api/test/add-balance', (req, res) => {
+    const { userId, amount } = req.body;
+    if (!userId || !amount) return res.status(400).json({ error: 'Invalid params' });
+    
+    const newBalance = updateBalance(userId, amount);
+    logTransaction({
+        id: `test_deposit_${userId}_${Date.now()}`,
+        userId,
+        amount,
+        type: 'test_deposit',
+        status: 'completed'
+    });
+    res.json({ success: true, newBalance });
+});
 
 // --- Promo Code Logic ---
 const VALID_PROMOCODES = {
