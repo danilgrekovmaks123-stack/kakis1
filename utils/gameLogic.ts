@@ -1,24 +1,8 @@
 import { SymbolType, SymbolData, CoinType, ROWS, COLS } from '../types';
-import { DUROV_WEIGHTS, FLOUR_WEIGHTS, BONUS_WEIGHTS, COIN_UP_WEIGHTS, COIN_UP_BONUS_WEIGHTS, SYMBOL_CONFIG, ThemeId } from '../constants';
+import { DUROV_WEIGHTS, FLOUR_WEIGHTS, BONUS_WEIGHTS, SYMBOL_CONFIG, ThemeId } from '../constants';
 
-export const getRandomSymbol = (isBonus: boolean = false, bet: number = 1, theme: ThemeId = 'durov', row: number = 0): SymbolData => {
-  let weights = isBonus ? BONUS_WEIGHTS : (theme === 'durov' ? DUROV_WEIGHTS : (theme === 'coin_up' ? COIN_UP_WEIGHTS : FLOUR_WEIGHTS));
-  
-  if (theme === 'coin_up') {
-      if (isBonus) {
-          // Bonus Mode for CoinUp
-          // Top row (row 0 in 4-row grid) gets specials. Others get coins/blanks.
-          if (row === 0) {
-              weights = COIN_UP_BONUS_WEIGHTS; // Has specials
-          } else {
-              // Only Coins and Blanks
-              weights = COIN_UP_BONUS_WEIGHTS.filter(w => w.type === SymbolType.CU_COIN || w.type === SymbolType.EMPTY);
-          }
-      } else {
-          weights = COIN_UP_WEIGHTS;
-      }
-  }
-
+export const getRandomSymbol = (isBonus: boolean = false, bet: number = 1, theme: ThemeId = 'durov'): SymbolData => {
+  const weights = isBonus ? BONUS_WEIGHTS : (theme === 'durov' ? DUROV_WEIGHTS : FLOUR_WEIGHTS);
   const totalWeight = weights.reduce((acc, item) => acc + item.weight, 0);
   let random = Math.random() * totalWeight;
   
@@ -35,7 +19,7 @@ export const getRandomSymbol = (isBonus: boolean = false, bet: number = 1, theme
   let coinValue = 0;
   let coinType = CoinType.STANDARD;
 
-  if (selectedType === SymbolType.COIN || selectedType === SymbolType.CU_COIN) {
+  if (selectedType === SymbolType.COIN) {
     // Bet-dependent values with chance for higher wins
     // User req: 10 -> 15, 20 (small chance). 0.1 -> 0.2, 0.3 (max).
     const valRoll = Math.random();
@@ -99,21 +83,18 @@ export const generateGrid = (rows: number, cols: number, isBonus: boolean = fals
     let hasWildInColumn = false;
 
     for (let r = 0; r < rows; r++) {
-      let symbol = getRandomSymbol(isBonus, bet, theme, r);
+      let symbol = getRandomSymbol(isBonus, bet, theme);
 
       // Constraint: Only one Wild per column (line)
       // If we already have a Wild in this column, reroll until it's not a Wild
-      // Skip for CoinUp as it doesn't use Wilds in the same way
-      if (theme !== 'coin_up') {
-          if (symbol.type === SymbolType.WILD && hasWildInColumn) {
-             while (symbol.type === SymbolType.WILD) {
-                 symbol = getRandomSymbol(isBonus, bet, theme, r);
-             }
-          }
+      if (symbol.type === SymbolType.WILD && hasWildInColumn) {
+         while (symbol.type === SymbolType.WILD) {
+             symbol = getRandomSymbol(isBonus, bet, theme);
+         }
+      }
 
-          if (symbol.type === SymbolType.WILD) {
-              hasWildInColumn = true;
-          }
+      if (symbol.type === SymbolType.WILD) {
+          hasWildInColumn = true;
       }
 
       grid[r][c] = symbol;
@@ -124,17 +105,10 @@ export const generateGrid = (rows: number, cols: number, isBonus: boolean = fals
 };
 
 export const checkWin = (grid: SymbolData[][], bet: number, theme: ThemeId = 'durov') => {
-  // CoinUp has no base game line wins, only Bonus trigger
-  if (theme === 'coin_up') {
-      return { winAmount: 0, winningLines: [] };
-  }
-
   let winAmount = 0;
   const winningLines: { row: number, col: number }[] = [];
-  const rows = grid.length;
-  const cols = grid[0].length;
 
-  for (let r = 0; r < rows; r++) {
+  for (let r = 0; r < ROWS; r++) {
     let matchCount = 1;
     
     // Determine start symbol with expansion logic
@@ -146,7 +120,7 @@ export const checkWin = (grid: SymbolData[][], bet: number, theme: ThemeId = 'du
     let currentSymbol = firstCellType;
     let isWildStart = currentSymbol === SymbolType.WILD;
 
-    for (let c = 1; c < cols; c++) {
+    for (let c = 1; c < COLS; c++) {
       const cell = grid[r][c];
       let cellType = cell.type;
 
