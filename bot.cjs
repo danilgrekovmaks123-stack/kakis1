@@ -76,34 +76,25 @@ function saveBalances(balances) {
     }
 }
 
-const DEFAULT_PROMOCODES = {
-    "GIFTUFC": {
-        reward: 2,
-        currency: "STARS",
-        usedBy: []
-    }
-};
-
 function getPromocodes() {
-    let promos = { ...DEFAULT_PROMOCODES };
+    let promos = {};
     try {
         if (fs.existsSync(PROMOCODES_FILE)) {
-            const fileData = JSON.parse(fs.readFileSync(PROMOCODES_FILE, 'utf8'));
-            promos = { ...promos, ...fileData };
-            
-            // Ensure GIFTUFC exists (override if missing or broken, or just let fileData override if it exists?)
-            // User wants to ADD it. If it's not in file, add it.
-            if (!promos["GIFTUFC"]) {
-                promos["GIFTUFC"] = DEFAULT_PROMOCODES["GIFTUFC"];
-            }
-            
-            // Explicitly remove 1GAME if it exists
-            if (promos["1GAME"]) {
-                delete promos["1GAME"];
-            }
+            promos = JSON.parse(fs.readFileSync(PROMOCODES_FILE, 'utf8'));
         }
     } catch (e) { console.error('Error reading promocodes:', e); }
     
+    // Ensure GIFTUFC exists (migration logic)
+    if (!promos["GIFTUFC"] || !promos["GIFTUFC"].reward) {
+        promos["GIFTUFC"] = {
+            reward: 2,
+            currency: "STARS",
+            usedBy: []
+        };
+        // Persist the migration
+        savePromocodes(promos);
+    }
+
     return promos;
 }
 
@@ -307,10 +298,13 @@ app.post('/api/promocode/activate', (req, res) => {
         return res.status(400).json({ success: false, error: 'Missing userId or code' });
     }
 
-    const promos = getPromocodes();
-    const promo = promos[code];
+    // Normalize input to uppercase to fix case sensitivity issue
+    const normalizedCode = code.toUpperCase();
 
-    if (!promo) {
+    const promos = getPromocodes();
+    const promo = promos[normalizedCode];
+
+    if (!promo || !promo.reward) {
         return res.status(400).json({ success: false, error: 'Неверный промокод' });
     }
 
@@ -328,11 +322,11 @@ app.post('/api/promocode/activate', (req, res) => {
 
     // Log transaction
     logTransaction({
-        id: `promo_${code}_${userId}_${Date.now()}`,
+        id: `promo_${normalizedCode}_${userId}_${Date.now()}`,
         userId: userId,
         amount: reward,
         type: 'promo',
-        payload: code
+        payload: normalizedCode
     });
 
     res.json({ success: true, newBalance, reward });
