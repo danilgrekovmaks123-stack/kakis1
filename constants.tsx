@@ -112,13 +112,13 @@ export const COIN_COLORS: Record<CoinType, string> = {
 };
 
 export const DUROV_WEIGHTS: { type: SymbolType; weight: number }[] = [
-  { type: SymbolType.PLANE, weight: 5 },   // High value (Rare)
-  { type: SymbolType.LOCK, weight: 3 },    // Highest value (Very Rare)
-  { type: SymbolType.SHIELD, weight: 90 }, // Low value (Common)
+  { type: SymbolType.PLANE, weight: 3 },   // High value (Rare) - Reduced for house safety
+  { type: SymbolType.LOCK, weight: 1 },    // Highest value (Very Rare) - Reduced for house safety
+  { type: SymbolType.SHIELD, weight: 85 }, // Low value (Common)
   { type: SymbolType.BOT, weight: 30 },    // Mid
-  { type: SymbolType.STAR, weight: 25 },   // Mid
-  { type: SymbolType.GIFT, weight: 20 },   // Mid
-  { type: SymbolType.DIAMOND, weight: 8 }, // High
+  { type: SymbolType.STAR, weight: 50 },   // Mid - Increased as requested (was 25)
+  { type: SymbolType.GIFT, weight: 15 },   // Mid
+  { type: SymbolType.DIAMOND, weight: 5 }, // High - Reduced for house safety
   { type: SymbolType.HASH, weight: 100 },  // Filler (Very Common)
   { type: SymbolType.NUM, weight: 100 },   // Filler (Very Common)
   { type: SymbolType.WILD, weight: 5 },    // Wild (Rare)
@@ -126,13 +126,13 @@ export const DUROV_WEIGHTS: { type: SymbolType; weight: number }[] = [
 ];
 
 export const FLOUR_WEIGHTS: { type: SymbolType; weight: number }[] = [
-  { type: SymbolType.PLANE, weight: 10 },  
-  { type: SymbolType.LOCK, weight: 5 },    // Still rare to prevent bankruptcy
-  { type: SymbolType.SHIELD, weight: 80 }, // Common
+  { type: SymbolType.PLANE, weight: 6 },   // Reduced
+  { type: SymbolType.LOCK, weight: 2 },    // Reduced
+  { type: SymbolType.SHIELD, weight: 75 }, // Common
   { type: SymbolType.BOT, weight: 60 },    // Frequent Mid
-  { type: SymbolType.STAR, weight: 50 },   // Frequent Mid
-  { type: SymbolType.GIFT, weight: 40 },   // Frequent Mid
-  { type: SymbolType.DIAMOND, weight: 15 },
+  { type: SymbolType.STAR, weight: 80 },   // Frequent Mid - Increased as requested (was 50)
+  { type: SymbolType.GIFT, weight: 35 },   // Frequent Mid
+  { type: SymbolType.DIAMOND, weight: 10 }, // Reduced
   { type: SymbolType.HASH, weight: 60 },   
   { type: SymbolType.NUM, weight: 60 },   
   { type: SymbolType.WILD, weight: 30 },   // Wild (Very Frequent -> More connections)
