@@ -76,21 +76,35 @@ function saveBalances(balances) {
     }
 }
 
+const DEFAULT_PROMOCODES = {
+    "GIFTUFC": {
+        reward: 2,
+        currency: "STARS",
+        usedBy: []
+    }
+};
+
 function getPromocodes() {
+    let promos = { ...DEFAULT_PROMOCODES };
     try {
         if (fs.existsSync(PROMOCODES_FILE)) {
-            return JSON.parse(fs.readFileSync(PROMOCODES_FILE, 'utf8'));
+            const fileData = JSON.parse(fs.readFileSync(PROMOCODES_FILE, 'utf8'));
+            promos = { ...promos, ...fileData };
+            
+            // Ensure GIFTUFC exists (override if missing or broken, or just let fileData override if it exists?)
+            // User wants to ADD it. If it's not in file, add it.
+            if (!promos["GIFTUFC"]) {
+                promos["GIFTUFC"] = DEFAULT_PROMOCODES["GIFTUFC"];
+            }
+            
+            // Explicitly remove 1GAME if it exists
+            if (promos["1GAME"]) {
+                delete promos["1GAME"];
+            }
         }
     } catch (e) { console.error('Error reading promocodes:', e); }
     
-    // Default Promocodes if file doesn't exist
-    return {
-        "GIFTUFC": {
-            reward: 2,
-            currency: "STARS",
-            usedBy: []
-        }
-    };
+    return promos;
 }
 
 function savePromocodes(promos) {
