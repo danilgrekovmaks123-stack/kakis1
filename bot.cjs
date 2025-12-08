@@ -85,7 +85,7 @@ function getPromocodes() {
     
     // Default Promocodes if file doesn't exist
     return {
-        "1GAME": {
+        "GIFTUFC": {
             reward: 2,
             currency: "STARS",
             usedBy: []
@@ -284,6 +284,44 @@ app.post('/api/game/transaction', (req, res) => {
     // amount can be negative (bet) or positive (win)
     const newBalance = updateBalance(userId, amount);
     res.json({ balance: newBalance });
+});
+
+app.post('/api/promocode/activate', (req, res) => {
+    const { userId, code } = req.body;
+    
+    if (!userId || !code) {
+        return res.status(400).json({ success: false, error: 'Missing userId or code' });
+    }
+
+    const promos = getPromocodes();
+    const promo = promos[code];
+
+    if (!promo) {
+        return res.status(400).json({ success: false, error: 'Неверный промокод' });
+    }
+
+    if (promo.usedBy.includes(userId)) {
+        return res.status(400).json({ success: false, error: 'Вы уже использовали этот промокод' });
+    }
+
+    // Apply reward
+    const reward = promo.reward;
+    const newBalance = updateBalance(userId, reward);
+
+    // Mark as used
+    promo.usedBy.push(userId);
+    savePromocodes(promos);
+
+    // Log transaction
+    logTransaction({
+        id: `promo_${code}_${userId}_${Date.now()}`,
+        userId: userId,
+        amount: reward,
+        type: 'promo',
+        payload: code
+    });
+
+    res.json({ success: true, newBalance, reward });
 });
 
 app.post('/api/create-invoice', async (req, res) => {
