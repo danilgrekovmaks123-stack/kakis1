@@ -78,7 +78,6 @@ function saveBalances(balances) {
 
 function getPromocodes() {
     let promos = {};
-    let needsSave = false;
     try {
         if (fs.existsSync(PROMOCODES_FILE)) {
             promos = JSON.parse(fs.readFileSync(PROMOCODES_FILE, 'utf8'));
@@ -86,16 +85,13 @@ function getPromocodes() {
     } catch (e) { console.error('Error reading promocodes:', e); }
     
     // Ensure GIFTUFC exists (migration logic)
-    if (!promos["GIFTUFC"]) {
+    if (!promos["GIFTUFC"] || !promos["GIFTUFC"].reward) {
         promos["GIFTUFC"] = {
             reward: 2,
             currency: "STARS",
             usedBy: []
         };
-        needsSave = true;
-    }
-
-    if (needsSave) {
+        // Persist the migration
         savePromocodes(promos);
     }
 
@@ -195,7 +191,88 @@ bot.on('successful_payment', async (ctx) => {
     }
 });
 
+// --- Action Handlers ---
+bot.action(/^approve_(\d+)_(\d+)$/, async (ctx) => {
+    const userId = parseInt(ctx.match[1]);
+    const amount = parseInt(ctx.match[2]);
+    
+    // Since we already deducted the balance, we just acknowledge.
+    // Optionally we can mark transaction as completed in DB if we tracked it there.
+    
+    await ctx.editMessageText(`✅ Вывод одобрен\nUser ID: ${userId}\nAmount: ${amount} Stars\nStatus: Completed`);
+    await ctx.answerCbQuery('Withdrawal confirmed');
+    
+    // Notify user
+    bot.telegram.sendMessage(userId, `✅ Ваш вывод ${amount} звезд одобрен! Они скоро поступят на ваш счет.`).catch(() => {});
+});
+
+bot.action(/^decline_(\d+)_(\d+)$/, async (ctx) => {
+    const userId = parseInt(ctx.match[1]);
+    const amount = parseInt(ctx.match[2]);
+    
+    // Refund the user
+    updateBalance(userId, amount);
+    
+    await ctx.editMessageText(`❌ Вывод отклонен\nUser ID: ${userId}\nAmount: ${amount} Stars\nStatus: Refunded`);
+    await ctx.answerCbQuery('Withdrawal declined');
+    
+    // Notify user
+    bot.telegram.sendMessage(userId, `❌ Ваш вывод ${amount} звезд был отклонен. Средства возвращены на баланс.`).catch(() => {});
+});
+
 // --- API Endpoints for WebApp ---
+app.post('/api/withdraw', async (req, res) => {
+    const { userId, amount, username } = req.body;
+    
+    if (!userId || !amount || amount < 500) {
+        return res.status(400).json({ error: 'Неверный запрос. Минимальный вывод 500 звезд.' });
+    }
+
+    const balances = getBalances();
+    const currentBalance = balances[userId] || 0;
+
+    if (currentBalance < amount) {
+        return res.status(400).json({ error: 'Недостаточно средств' });
+    }
+
+    // Deduct immediately
+    const newBalance = updateBalance(userId, -amount);
+
+    // Log withdrawal request
+    logTransaction({
+        id: `withdraw_${userId}_${Date.now()}`,
+        userId: userId,
+        username: username,
+        amount: amount,
+        type: 'withdrawal',
+        status: 'pending'
+    });
+
+    // Send Request to Admin
+    try {
+        if (ADMIN_ID) {
+            await bot.telegram.sendMessage(ADMIN_ID, 
+                `💸 Запрос на вывод!\nUser: ${username} (ID: ${userId})\nAmount: ${amount} Stars\nBalance left: ${newBalance}`, 
+                {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                { text: '✅ Одобрить', callback_data: `approve_${userId}_${amount}` },
+                                { text: '❌ Отклонить', callback_data: `decline_${userId}_${amount}` }
+                            ]
+                        ]
+                    }
+                }
+            );
+        }
+        res.json({ success: true, newBalance });
+    } catch (e) {
+        console.error('Failed to notify admin:', e);
+        // Refund on error
+        updateBalance(userId, amount);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
 
 app.get('/api/balance/:userId', (req, res) => {
     const userId = parseInt(req.params.userId);
@@ -222,11 +299,7 @@ app.post('/api/promocode/activate', (req, res) => {
     }
 
     const promos = getPromocodes();
-    // Normalize code if needed, but dictionary keys are usually case-sensitive. 
-    // If we want case-insensitivity, we should handle it. 
-    // The previous "bad" implementation did upperCase. Let's do that here too for better UX.
-    const upperCode = code.toUpperCase().trim();
-    const promo = promos[upperCode] || promos[code]; // Try exact or upper
+    const promo = promos[code];
 
     if (!promo || !promo.reward) {
         return res.status(400).json({ success: false, error: 'Неверный промокод' });
@@ -246,11 +319,11 @@ app.post('/api/promocode/activate', (req, res) => {
 
     // Log transaction
     logTransaction({
-        id: `promo_${upperCode}_${userId}_${Date.now()}`,
+        id: `promo_${code}_${userId}_${Date.now()}`,
         userId: userId,
         amount: reward,
         type: 'promo',
-        payload: upperCode
+        payload: code
     });
 
     res.json({ success: true, newBalance, reward });
@@ -301,6 +374,73 @@ app.post('/api/test/add-balance', (req, res) => {
         status: 'completed'
     });
     res.json({ success: true, newBalance });
+});
+
+// --- Promo Code Logic ---
+const VALID_PROMOCODES = {
+    '1GAME': { reward: 2, maxUses: 1 } // code: { reward in Stars, maxUses per user }
+};
+
+function getUsedPromocodes() {
+    try {
+        if (fs.existsSync(PROMOCODES_FILE)) {
+            return JSON.parse(fs.readFileSync(PROMOCODES_FILE, 'utf8'));
+        }
+    } catch (e) { console.error('Error reading promocodes:', e); }
+    return {};
+}
+
+function saveUsedPromocodes(data) {
+    try {
+        fs.writeFileSync(PROMOCODES_FILE, JSON.stringify(data, null, 2));
+        return true;
+    } catch (e) {
+        console.error('Error writing promocodes:', e);
+        return false;
+    }
+}
+
+app.post('/api/promocode/activate', (req, res) => {
+    const { userId, code } = req.body;
+    
+    if (!userId || !code) {
+        return res.status(400).json({ error: 'Missing userId or code' });
+    }
+
+    const upperCode = code.toUpperCase().trim();
+    const promoConfig = VALID_PROMOCODES[upperCode];
+
+    if (!promoConfig) {
+        return res.status(400).json({ error: 'Invalid promo code' });
+    }
+
+    const usedData = getUsedPromocodes();
+    // Structure: { userId: [code1, code2] } or { userId: { code1: count } }
+    // Let's use { userId: { code: timestamp } } for simplicity checking existence
+    
+    if (!usedData[userId]) usedData[userId] = {};
+
+    if (usedData[userId][upperCode]) {
+        return res.status(400).json({ error: 'Promo code already used' });
+    }
+
+    // Apply Reward
+    const newBalance = updateBalance(userId, promoConfig.reward);
+    
+    // Mark as used
+    usedData[userId][upperCode] = new Date().toISOString();
+    saveUsedPromocodes(usedData);
+
+    logTransaction({
+        id: `promo_${userId}_${upperCode}_${Date.now()}`,
+        userId,
+        amount: promoConfig.reward,
+        type: 'promocode_reward',
+        code: upperCode,
+        status: 'completed'
+    });
+
+    res.json({ success: true, newBalance, reward: promoConfig.reward });
 });
 
 // --- Withdrawal Logic ---
