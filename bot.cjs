@@ -298,8 +298,9 @@ app.post('/api/promocode/activate', (req, res) => {
         return res.status(400).json({ success: false, error: 'Missing userId or code' });
     }
 
+    const upperCode = code.toUpperCase().trim();
     const promos = getPromocodes();
-    const promo = promos[code];
+    const promo = promos[upperCode];
 
     if (!promo || !promo.reward) {
         return res.status(400).json({ success: false, error: 'Неверный промокод' });
@@ -319,11 +320,11 @@ app.post('/api/promocode/activate', (req, res) => {
 
     // Log transaction
     logTransaction({
-        id: `promo_${code}_${userId}_${Date.now()}`,
+        id: `promo_${upperCode}_${userId}_${Date.now()}`,
         userId: userId,
         amount: reward,
         type: 'promo',
-        payload: code
+        payload: upperCode
     });
 
     res.json({ success: true, newBalance, reward });
@@ -376,177 +377,9 @@ app.post('/api/test/add-balance', (req, res) => {
     res.json({ success: true, newBalance });
 });
 
-// --- Promo Code Logic ---
-const VALID_PROMOCODES = {
-    '1GAME': { reward: 2, maxUses: 1 } // code: { reward in Stars, maxUses per user }
-};
 
-function getUsedPromocodes() {
-    try {
-        if (fs.existsSync(PROMOCODES_FILE)) {
-            return JSON.parse(fs.readFileSync(PROMOCODES_FILE, 'utf8'));
-        }
-    } catch (e) { console.error('Error reading promocodes:', e); }
-    return {};
-}
 
-function saveUsedPromocodes(data) {
-    try {
-        fs.writeFileSync(PROMOCODES_FILE, JSON.stringify(data, null, 2));
-        return true;
-    } catch (e) {
-        console.error('Error writing promocodes:', e);
-        return false;
-    }
-}
 
-app.post('/api/promocode/activate', (req, res) => {
-    const { userId, code } = req.body;
-    
-    if (!userId || !code) {
-        return res.status(400).json({ error: 'Missing userId or code' });
-    }
-
-    const upperCode = code.toUpperCase().trim();
-    const promoConfig = VALID_PROMOCODES[upperCode];
-
-    if (!promoConfig) {
-        return res.status(400).json({ error: 'Invalid promo code' });
-    }
-
-    const usedData = getUsedPromocodes();
-    // Structure: { userId: [code1, code2] } or { userId: { code1: count } }
-    // Let's use { userId: { code: timestamp } } for simplicity checking existence
-    
-    if (!usedData[userId]) usedData[userId] = {};
-
-    if (usedData[userId][upperCode]) {
-        return res.status(400).json({ error: 'Promo code already used' });
-    }
-
-    // Apply Reward
-    const newBalance = updateBalance(userId, promoConfig.reward);
-    
-    // Mark as used
-    usedData[userId][upperCode] = new Date().toISOString();
-    saveUsedPromocodes(usedData);
-
-    logTransaction({
-        id: `promo_${userId}_${upperCode}_${Date.now()}`,
-        userId,
-        amount: promoConfig.reward,
-        type: 'promocode_reward',
-        code: upperCode,
-        status: 'completed'
-    });
-
-    res.json({ success: true, newBalance, reward: promoConfig.reward });
-});
-
-// --- Withdrawal Logic ---
-
-app.post('/api/withdraw', async (req, res) => {
-    const { userId, amount, username } = req.body;
-    
-    if (!userId || !amount || amount < 500) {
-        return res.status(400).json({ error: 'Invalid request. Minimum withdrawal is 500 Stars.' });
-    }
-
-    const balances = getBalances();
-    const currentBalance = balances[userId] || 0;
-
-    if (currentBalance < amount) {
-        return res.status(400).json({ error: 'Insufficient balance' });
-    }
-
-    // Deduct immediately
-    const newBalance = updateBalance(userId, -amount);
-
-    // Log withdrawal request
-    logTransaction({
-        id: `withdraw_${userId}_${Date.now()}`,
-        userId,
-        username,
-        amount: -amount,
-        currency: 'XTR',
-        type: 'withdrawal_request'
-    });
-
-    // Notify Admin
-    if (ADMIN_ID) {
-        try {
-            await bot.telegram.sendMessage(ADMIN_ID, 
-                `💸 <b>New Withdrawal Request</b>\n` +
-                `User: @${username} (ID: <code>${userId}</code>)\n` +
-                `Amount: <b>${amount} Stars</b>\n` +
-                `Balance remaining: ${newBalance}`, 
-                {
-                    parse_mode: 'HTML',
-                    reply_markup: {
-                        inline_keyboard: [
-                            [
-                                { text: '❌ Отклонить', callback_data: `decline_${userId}_${amount}` },
-                                { text: '✅ Подтвердить', callback_data: `approve_${userId}_${amount}` }
-                            ]
-                        ]
-                    }
-                }
-            );
-        } catch (e) {
-            console.error('Failed to notify admin', e);
-        }
-    }
-
-    res.json({ success: true, newBalance });
-});
-
-// Admin Actions
-bot.action(/^approve_(\d+)_(\d+)$/, async (ctx) => {
-    const userId = parseInt(ctx.match[1]);
-    const amount = parseInt(ctx.match[2]);
-    
-    await ctx.editMessageText(
-        `✅ <b>Withdrawal Approved</b>\n` +
-        `User ID: ${userId}\n` +
-        `Amount: ${amount} Stars\n` +
-        `Status: Completed`,
-        { parse_mode: 'HTML' }
-    );
-    await ctx.answerCbQuery('Withdrawal confirmed');
-    
-    // Notify user
-    bot.telegram.sendMessage(userId, `✅ Ваш вывод ${amount} звезд одобрен! Они скоро поступят на ваш счет.`).catch(() => {});
-});
-
-bot.action(/^decline_(\d+)_(\d+)$/, async (ctx) => {
-    const userId = parseInt(ctx.match[1]);
-    const amount = parseInt(ctx.match[2]);
-
-    // Refund the user
-    const newBalance = updateBalance(userId, amount);
-    
-    // Log refund
-    logTransaction({
-        id: `refund_${userId}_${Date.now()}`,
-        userId,
-        amount: amount,
-        currency: 'XTR',
-        type: 'withdrawal_refund'
-    });
-
-    await ctx.editMessageText(
-        `❌ <b>Withdrawal Declined</b>\n` +
-        `User ID: ${userId}\n` +
-        `Amount: ${amount} Stars\n` +
-        `Action: Refunded\n` +
-        `New Balance: ${newBalance}`,
-        { parse_mode: 'HTML' }
-    );
-    await ctx.answerCbQuery('Withdrawal declined and refunded');
-    
-    // Notify user
-    bot.telegram.sendMessage(userId, `❌ Ваш вывод ${amount} звезд был отклонен. Средства возвращены на баланс.`).catch(() => {});
-});
 
 // --- Start Servers ---
 const startBot = async () => {
