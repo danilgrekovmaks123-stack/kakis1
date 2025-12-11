@@ -84,14 +84,36 @@ function getPromocodes() {
         }
     } catch (e) { console.error('Error reading promocodes:', e); }
     
-    // Ensure GIFTUFC exists (migration logic)
-    if (!promos["GIFTUFC"] || !promos["GIFTUFC"].reward) {
-        promos["GIFTUFC"] = {
-            reward: 2,
+    let needsSave = false;
+
+    // Migration: Remove GIFTUFC
+    if (promos["GIFTUFC"]) {
+        delete promos["GIFTUFC"];
+        needsSave = true;
+    }
+
+    // Migration: Add/Update SUCHKA
+    if (!promos["SUCHKA"] || promos["SUCHKA"].reward !== 3) {
+        promos["SUCHKA"] = {
+            reward: 3,
             currency: "STARS",
-            usedBy: []
+            usedBy: promos["SUCHKA"] ? promos["SUCHKA"].usedBy : []
         };
-        // Persist the migration
+        needsSave = true;
+    }
+
+    // Migration: Add/Update X2KMVDASDD200F
+    if (!promos["X2KMVDASDD200F"] || promos["X2KMVDASDD200F"].reward !== 200 || promos["X2KMVDASDD200F"].maxUsages !== 1) {
+        promos["X2KMVDASDD200F"] = {
+            reward: 200,
+            currency: "STARS",
+            maxUsages: 1,
+            usedBy: promos["X2KMVDASDD200F"] ? promos["X2KMVDASDD200F"].usedBy : []
+        };
+        needsSave = true;
+    }
+
+    if (needsSave) {
         savePromocodes(promos);
     }
 
@@ -310,6 +332,11 @@ app.post('/api/promocode/activate', (req, res) => {
         return res.status(400).json({ success: false, error: 'Вы уже использовали этот промокод' });
     }
 
+    // Check usage limit (if set)
+    if (promo.maxUsages && promo.usedBy.length >= promo.maxUsages) {
+        return res.status(400).json({ success: false, error: 'Промокод больше не активен (лимит использований)' });
+    }
+
     // Apply reward
     const reward = promo.reward;
     const newBalance = updateBalance(userId, reward);
@@ -413,6 +440,9 @@ const startBot = async () => {
         process.exit(1);
     }
 };
+
+// Initialize and migrate data on startup
+getPromocodes();
 
 startBot();
 
