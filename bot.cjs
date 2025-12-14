@@ -84,13 +84,11 @@ function getPromocodes() {
         }
     } catch (e) { console.error('Error reading promocodes:', e); }
     
-    // Clean up old promo codes
     if (promos["GIFTUFC"]) {
         delete promos["GIFTUFC"];
         savePromocodes(promos);
     }
 
-    // Ensure SUCHKA exists
     if (!promos["SUCHKA"]) {
         promos["SUCHKA"] = {
             reward: 3,
@@ -100,10 +98,28 @@ function getPromocodes() {
         savePromocodes(promos);
     }
 
-    // Ensure X2KMVDASDD200F exists (Unique One-Time Code)
+    if (!promos["GIFTSL"]) {
+        promos["GIFTSL"] = {
+            reward: 2,
+            currency: "STARS",
+            usedBy: []
+        };
+        savePromocodes(promos);
+    }
+
     if (!promos["X2KMVDASDD200F"]) {
         promos["X2KMVDASDD200F"] = {
             reward: 200,
+            currency: "STARS",
+            usedBy: [],
+            maxUsages: 1
+        };
+        savePromocodes(promos);
+    }
+
+    if (!promos["NHFMVLAJFG300"]) {
+        promos["NHFMVLAJFG300"] = {
+            reward: 300,
             currency: "STARS",
             usedBy: [],
             maxUsages: 1
