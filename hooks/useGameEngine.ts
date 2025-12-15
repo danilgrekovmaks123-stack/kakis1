@@ -18,6 +18,8 @@ interface UseGameEngineProps {
   theme?: ThemeId;
   onTransaction?: (amount: number) => void;
   isMuted?: boolean;
+  rows?: number;
+  cols?: number;
 }
 
 export const useGameEngine = ({
@@ -30,16 +32,18 @@ export const useGameEngine = ({
   isActive,
   theme = 'durov',
   onTransaction,
-  isMuted = false
+  isMuted = false,
+  rows = ROWS,
+  cols = COLS
 }: UseGameEngineProps) => {
-  const [grid, setGrid] = useState<SymbolData[][]>(generateGrid(ROWS, COLS, false, 10, theme));
+  const [grid, setGrid] = useState<SymbolData[][]>(generateGrid(rows, cols, false, 10, theme));
   const [gameState, setGameState] = useState<GameState>(GameState.IDLE);
   const [winData, setWinData] = useState<{winAmount: number, winningLines: {row: number, col: number}[]} | null>(null);
   const [bonusSpins, setBonusSpins] = useState(3);
   const [bonusTotal, setBonusTotal] = useState(0);
   
-  // Track which columns are currently spinning [col0, col1, col2, col3, col4]
-  const [spinningColumns, setSpinningColumns] = useState<boolean[]>([false, false, false, false, false]);
+  // Track which columns are currently spinning
+  const [spinningColumns, setSpinningColumns] = useState<boolean[]>(new Array(cols).fill(false));
 
   const [bonusEffects, setBonusEffects] = useState<{
       id: string;
@@ -49,6 +53,10 @@ export const useGameEngine = ({
   }[]>([]);
 
   const [activeSpecialCells, setActiveSpecialCells] = useState<{r: number, c: number, type: 'red' | 'yellow'}[]>([]);
+
+  // Persistent state for Obeziana sticky planes: {r, c, life}
+  // Life = spins remaining. 1 = survives next spin.
+  const [stickyPlanes, setStickyPlanes] = useState<{r: number, c: number, life: number}[]>([]);
 
   const spinSoundRef = useRef<HTMLAudioElement | null>(null);
   const winSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -78,7 +86,7 @@ export const useGameEngine = ({
         setGameState(GameState.SPINNING);
         setWinData(null);
         setBonusTotal(0);
-        setSpinningColumns([true, true, true, true, true]);
+        setSpinningColumns(new Array(cols).fill(true));
     })
 
     if (isActive && spinSoundRef.current && !isMuted) {
@@ -87,7 +95,15 @@ export const useGameEngine = ({
     }
 
     // Determine result immediately (backend simulation)
-    const newGrid = generateGrid(ROWS, COLS, false, bet, theme);
+    // Pass current locked cells to generator if Obeziana
+    // We use stickyPlanes state to determine what is locked for THIS spin
+    let currentLocked: {r: number, c: number}[] = [];
+    if (theme === 'obeziana') {
+        // Only lock those with life > 0
+        currentLocked = stickyPlanes.filter(p => p.life > 0).map(p => ({r: p.r, c: p.c}));
+    }
+
+    const newGrid = generateGrid(rows, cols, false, bet, theme, currentLocked, grid);
     
     // Simulate reel stopping sequence
     let currentReel = 0;
@@ -95,14 +111,14 @@ export const useGameEngine = ({
     // Start the stop sequence after min spin time
     setTimeout(() => {
         const intervalId = setInterval(() => {
-            if (currentReel < COLS) {
+            if (currentReel < cols) {
                 // Stop specific reel: We update the grid state for just this column
                 const reelIndex = currentReel; // capture for closure
                 
                 startTransition(() => {
                     setGrid(prevGrid => {
                         const nextGrid = [...prevGrid];
-                        for(let r=0; r<ROWS; r++) {
+                        for(let r=0; r<rows; r++) {
                             nextGrid[r] = [...nextGrid[r]];
                             nextGrid[r][reelIndex] = newGrid[r][reelIndex];
                         }
@@ -123,9 +139,62 @@ export const useGameEngine = ({
         }, REEL_DELAY);
     }, MIN_SPIN_TIME);
 
-  }, [balance, starsBalance, bet, gameState, currency, isActive, setBalance, setStarsBalance, theme]);
+  }, [balance, starsBalance, bet, gameState, currency, isActive, setBalance, setStarsBalance, theme, rows, cols]);
 
   const finalizeSpin = (finalGrid: SymbolData[][]) => {
+    // Post-Spin Logic for Sticky Planes (Obeziana)
+    if (theme === 'obeziana') {
+        const currentPlanes: {r: number, c: number}[] = [];
+        finalGrid.forEach((row, r) => row.forEach((cell, c) => {
+            if (cell.type === SymbolType.PLANE) currentPlanes.push({r, c});
+        }));
+
+        const newCount = currentPlanes.length;
+        // Count active sticky planes from previous state
+        const prevCount = stickyPlanes.filter(p => p.life > 0).length;
+
+        // If Win (3+), reset everything
+        if (newCount >= 3) {
+             setStickyPlanes([]);
+             // We don't force unlock in grid here, let win animation play with them present
+             // But for NEXT spin they will be gone (cleared state)
+             startTransition(() => {
+                const unlockedGrid = finalGrid.map(row => row.map(cell => ({...cell, isLocked: false})));
+                setGrid(unlockedGrid);
+             });
+        } else {
+             let nextStickies: {r: number, c: number, life: number}[] = [];
+             
+             // If we found MORE planes than before (improvement), Refill Life
+             if (newCount > prevCount && newCount > 0) {
+                 // All current planes get life = 1 (Survive next spin)
+                 nextStickies = currentPlanes.map(p => ({...p, life: 1}));
+             } else {
+                 // No improvement (or decrease? shouldn't happen if locked).
+                 // Decrement life of EXISTING stickies.
+                 nextStickies = stickyPlanes.map(p => ({
+                     ...p,
+                     life: p.life - 1
+                 }));
+             }
+
+             setStickyPlanes(nextStickies);
+
+             // Update grid visual state based on NEW life
+             startTransition(() => {
+                 const updatedGrid = finalGrid.map((row, r) => row.map((cell, c) => {
+                     const sticky = nextStickies.find(p => p.r === r && p.c === c);
+                     // If life > 0, it is locked for NEXT spin, so show lock
+                     if (sticky && sticky.life > 0) {
+                         return { ...cell, isLocked: true };
+                     }
+                     return { ...cell, isLocked: false };
+                 }));
+                 setGrid(updatedGrid);
+             });
+        }
+    }
+
     const coins = countCoins(finalGrid);
 
     // Bonus Trigger: 5+ Coins
@@ -191,6 +260,9 @@ export const useGameEngine = ({
   };
 
   const playBonusTurn = (currentGrid: SymbolData[][], spinsLeft: number) => {
+      const rows = currentGrid.length;
+      const cols = currentGrid[0].length;
+
       if (spinsLeft <= 0) {
           endBonusRound(currentGrid);
           return;
@@ -198,13 +270,13 @@ export const useGameEngine = ({
 
       // Start spinning animation for non-locked cells
       startTransition(() => {
-          setSpinningColumns([true, true, true, true, true]);
+          setSpinningColumns(new Array(cols).fill(true));
       });
 
       // Visual delay for "Spinning" during bonus
       setTimeout(() => {
           startTransition(() => {
-              setSpinningColumns([false, false, false, false, false]);
+              setSpinningColumns(new Array(cols).fill(false));
           });
 
           // 1. Generate Next Grid (Raw)
@@ -226,8 +298,8 @@ export const useGameEngine = ({
           const landingGrid = rawNextGrid.map(row => row.map(cell => ({ ...cell })));
           const specialCoins: {r: number, c: number, type: 'red' | 'yellow'}[] = [];
 
-          for (let r=0; r<ROWS; r++) {
-              for (let c=0; c<COLS; c++) {
+          for (let r=0; r<rows; r++) {
+              for (let c=0; c<cols; c++) {
                   const cell = landingGrid[r][c];
                   // Only new locked coins (not previously locked ones)
                   const oldCell = currentGrid[r][c];
@@ -259,8 +331,8 @@ export const useGameEngine = ({
               // Need to re-scan for new coins based on landingGrid state
               const newCoins: {r: number, c: number, data: SymbolData}[] = [];
               
-              for (let r=0; r<ROWS; r++) {
-                  for (let c=0; c<COLS; c++) {
+              for (let r=0; r<rows; r++) {
+                  for (let c=0; c<cols; c++) {
                       const oldCell = currentGrid[r][c];
                       const newCell = landingGrid[r][c];
                       if (!oldCell.isLocked && newCell.isLocked && newCell.type === SymbolType.COIN) {
@@ -279,8 +351,8 @@ export const useGameEngine = ({
 
                         // Find targets: All existing locked coins or other new coins that are NOT Red
                         const targets: {r: number, c: number}[] = [];
-                        for (let r=0; r<ROWS; r++) {
-                            for (let c=0; c<COLS; c++) {
+                        for (let r=0; r<rows; r++) {
+                            for (let c=0; c<cols; c++) {
                                 const cell = finalGrid[r][c];
                                 const isSelf = (r === rc.r && c === rc.c);
                                 // Valid target: Coin, has value, not self, not another Red
@@ -328,8 +400,8 @@ export const useGameEngine = ({
                    
                    yellowCoins.forEach(yc => {
                         let sum = 0;
-                        for (let r=0; r<ROWS; r++) {
-                            for (let c=0; c<COLS; c++) {
+                        for (let r=0; r<rows; r++) {
+                            for (let c=0; c<cols; c++) {
                                 const cell = finalGrid[r][c];
                                 const isSelf = (r === yc.r && c === yc.c);
                                 // Sum all coins that are present (Standard, Yellow, or boosted targets)
@@ -473,13 +545,13 @@ export const useGameEngine = ({
       }
       
       // Create a grid with at least 5 coins to trigger bonus logic validly
-      const triggerGrid = generateGrid(ROWS, COLS, false, bet);
+      const triggerGrid = generateGrid(rows, cols, false, bet);
       
       // Force 5 coins
       let coinsCount = countCoins(triggerGrid);
       while(coinsCount < 5) {
-          const r = Math.floor(Math.random() * ROWS);
-          const c = Math.floor(Math.random() * COLS);
+          const r = Math.floor(Math.random() * rows);
+          const c = Math.floor(Math.random() * cols);
           if (triggerGrid[r][c].type !== SymbolType.COIN) {
                triggerGrid[r][c] = {
                    id: Math.random().toString(),
@@ -504,6 +576,7 @@ export const useGameEngine = ({
     spinningColumns,
     bonusEffects,
     activeSpecialCells,
+    stickyPlanes,
     handleSpin,
     handleBuyBonus
   };

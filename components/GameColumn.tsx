@@ -1,5 +1,5 @@
 import React from 'react';
-import { SymbolData, SymbolType, ROWS } from '../types';
+import { SymbolData, SymbolType } from '../types';
 import { ThemeId } from '../constants';
 import SlotCell from './SlotCell';
 
@@ -27,6 +27,7 @@ const GameColumn: React.FC<GameColumnProps> = ({
   theme,
   isBonusMode
 }) => {
+  const rows = gridColumn.length;
   return (
     <div className="flex flex-col gap-2 md:gap-3">
       {gridColumn.map((cell, rIndex) => {
@@ -38,7 +39,7 @@ const GameColumn: React.FC<GameColumnProps> = ({
         const isUnderWild = theme === 'flour' && rIndex > 0 && gridColumn[rIndex - 1].type === SymbolType.WILD;
 
         return (
-          <div key={`${rIndex}-${cIndex}`} className="aspect-square relative" style={{ zIndex: ROWS - rIndex }}>
+          <div key={`${rIndex}-${cIndex}`} className="aspect-square relative" style={{ zIndex: rows - rIndex }}>
             <SlotCell 
               symbol={cell} 
               highlight={!!isWinning} 

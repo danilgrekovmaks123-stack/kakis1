@@ -2,7 +2,7 @@ import React from 'react';
 import { SymbolType, CoinType } from './types';
 import { Shield, Bot, Star, Zap, Hexagon, Gem } from 'lucide-react';
 
-export type ThemeId = 'durov' | 'flour';
+export type ThemeId = 'durov' | 'flour' | 'obeziana';
 
 export const THEME_IMAGES: Record<ThemeId, Record<string, string>> = {
   durov: {
@@ -34,6 +34,22 @@ export const THEME_IMAGES: Record<ThemeId, Record<string, string>> = {
     'COIN_STRIP': '/coinflow.png',
     'ANIMATION_PLANE': '/rediska.tgs',
     'ANIMATION_WILD': '/chpic.su_-_Loving_Gift_by_EmojiRu_Bot_006.tgs'
+  },
+  obeziana: {
+    // Reuse Durov images for now, but NO WILD functionality will be used
+    [SymbolType.PLANE]: '/demonmakaka.svg',
+    [SymbolType.LOCK]: '/knopka.png',
+    [SymbolType.SHIELD]: '/mamamamakaka.png',
+    [SymbolType.BOT]: '/bubamakaka.png',
+    [SymbolType.STAR]: '/orangemakaka.png',
+    [SymbolType.GIFT]: '/SONMAKAKA.png',
+    [SymbolType.DIAMOND]: '/wolfmakaka.png',
+    [SymbolType.HASH]: '/bamm.png',
+    [SymbolType.NUM]: '/Yelolmakaka.png',
+    [SymbolType.WILD]: '/download_4.4400000000003885.svg', // Fallback, won't appear
+    'COIN_STRIP': '/moneta.svg',
+    'ANIMATION_PLANE': '/demonanimmakaka.tgs',
+    'ANIMATION_WILD': '/sozdatel.tgs'
   }
 };
 
@@ -43,7 +59,7 @@ export const SYMBOL_CONFIG: Record<SymbolType, { color: string, icon?: React.Rea
     color: '#5cabeb', 
     imageUrl: '/dogtg.png', 
     label: 'DogTG', 
-    multiplier: 6.0 
+    multiplier: 20.0 
   },
   [SymbolType.LOCK]: { 
     color: '#879099', 
@@ -112,31 +128,44 @@ export const COIN_COLORS: Record<CoinType, string> = {
 };
 
 export const DUROV_WEIGHTS: { type: SymbolType; weight: number }[] = [
-  { type: SymbolType.PLANE, weight: 3 },   // High value (Rare) - Reduced for house safety
-  { type: SymbolType.LOCK, weight: 1 },    // Highest value (Very Rare) - Reduced for house safety
-  { type: SymbolType.SHIELD, weight: 85 }, // Low value (Common)
-  { type: SymbolType.BOT, weight: 30 },    // Mid
-  { type: SymbolType.STAR, weight: 50 },   // Mid - Increased as requested (was 25)
-  { type: SymbolType.GIFT, weight: 15 },   // Mid
-  { type: SymbolType.DIAMOND, weight: 5 }, // High - Reduced for house safety
-  { type: SymbolType.HASH, weight: 100 },  // Filler (Very Common)
-  { type: SymbolType.NUM, weight: 100 },   // Filler (Very Common)
-  { type: SymbolType.WILD, weight: 5 },    // Wild (Rare)
-  { type: SymbolType.COIN, weight: 15 },   // Bonus (Rare)
+  { type: SymbolType.PLANE, weight: 15 },   // Increased
+  { type: SymbolType.LOCK, weight: 8 },    // Increased
+  { type: SymbolType.SHIELD, weight: 60 }, // Reduced
+  { type: SymbolType.BOT, weight: 40 },    // Increased
+  { type: SymbolType.STAR, weight: 60 },   // Increased
+  { type: SymbolType.GIFT, weight: 30 },   // Increased
+  { type: SymbolType.DIAMOND, weight: 20 }, // Increased
+  { type: SymbolType.HASH, weight: 60 },  // Reduced
+  { type: SymbolType.NUM, weight: 60 },   // Reduced
+  { type: SymbolType.WILD, weight: 15 },    // Increased
+  { type: SymbolType.COIN, weight: 30 },   // Increased
 ];
 
 export const FLOUR_WEIGHTS: { type: SymbolType; weight: number }[] = [
-  { type: SymbolType.PLANE, weight: 6 },   // Reduced
-  { type: SymbolType.LOCK, weight: 2 },    // Reduced
-  { type: SymbolType.SHIELD, weight: 75 }, // Common
+  { type: SymbolType.PLANE, weight: 20 },   // Increased
+  { type: SymbolType.LOCK, weight: 10 },    // Increased
+  { type: SymbolType.SHIELD, weight: 50 }, // Reduced
   { type: SymbolType.BOT, weight: 60 },    // Frequent Mid
-  { type: SymbolType.STAR, weight: 80 },   // Frequent Mid - Increased as requested (was 50)
-  { type: SymbolType.GIFT, weight: 35 },   // Frequent Mid
-  { type: SymbolType.DIAMOND, weight: 10 }, // Reduced
-  { type: SymbolType.HASH, weight: 60 },   
-  { type: SymbolType.NUM, weight: 60 },   
-  { type: SymbolType.WILD, weight: 30 },   // Wild (Very Frequent -> More connections)
-  { type: SymbolType.COIN, weight: 25 },   // Bonus (Frequent)
+  { type: SymbolType.STAR, weight: 80 },   // Frequent Mid
+  { type: SymbolType.GIFT, weight: 50 },   // Increased
+  { type: SymbolType.DIAMOND, weight: 30 }, // Increased
+  { type: SymbolType.HASH, weight: 40 },   // Reduced
+  { type: SymbolType.NUM, weight: 40 },    // Reduced
+  { type: SymbolType.WILD, weight: 50 },   // Wild (Very Frequent -> More connections)
+  { type: SymbolType.COIN, weight: 40 },   // Bonus (Frequent)
+];
+
+export const OBEZIANA_WEIGHTS: { type: SymbolType; weight: number }[] = [
+  { type: SymbolType.PLANE, weight: 15 },   // Increased
+  // No LOCK (10x) - Max is 6x (PLANE)
+  { type: SymbolType.SHIELD, weight: 80 }, // Reduced
+  { type: SymbolType.BOT, weight: 60 },    // Increased
+  { type: SymbolType.STAR, weight: 50 },   // Increased
+  { type: SymbolType.GIFT, weight: 30 },   // Increased
+  { type: SymbolType.DIAMOND, weight: 15 }, // Increased
+  { type: SymbolType.HASH, weight: 100 },  // Reduced
+  { type: SymbolType.NUM, weight: 100 },   // Reduced
+  // No WILD, No COIN
 ];
 
 export const BONUS_WEIGHTS: { type: SymbolType; weight: number }[] = [

@@ -4,13 +4,21 @@ const path = require('path');
 
 // --- Configuration ---
 const VITE_PORT = 3000;
-const BOT_SCRIPT = 'bot.cjs';
-const ENV_FILE = '.env';
-const TUNNEL_LOG = 'tunnel_log.txt';
+const BOT_SCRIPT = path.join(__dirname, 'bot.cjs');
+const ENV_FILE = path.join(__dirname, '.env');
+const TUNNEL_LOG = path.join(__dirname, 'tunnel_log.txt');
+const DEBUG_LOG = path.join(__dirname, 'debug_start.log');
+const CWD = __dirname;
+
+function log(msg) {
+    const text = `[${new Date().toISOString()}] ${msg}\n`;
+    console.log(msg);
+    fs.appendFileSync(DEBUG_LOG, text);
+}
 
 // --- Helper: Kill existing processes ---
 function killProcesses() {
-    console.log('Stopping existing processes...');
+    log('Stopping existing processes...');
     try {
         // Kill cloudflared
         execSync('taskkill /F /IM cloudflared.exe', { stdio: 'ignore' });
@@ -30,9 +38,9 @@ function killProcesses() {
                     try {
                         process.stdout.write(`Killing node.exe PID ${pid}... `);
                         execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
-                        console.log('Done.');
+                        log('Done.');
                     } catch (e) {
-                        console.log('Failed (might be already gone).');
+                        log('Failed (might be already gone).');
                     }
                 }
             }
@@ -44,12 +52,12 @@ function killProcesses() {
 
 // --- Helper: Update .env file ---
 function updateEnv(url) {
-    console.log(`Updating ${ENV_FILE} with new URL: ${url}`);
+    log(`Updating ${ENV_FILE} with new URL: ${url}`);
     let envContent = '';
     try {
         envContent = fs.readFileSync(ENV_FILE, 'utf8');
     } catch (e) {
-        console.log('.env file not found, creating new one.');
+        log('.env file not found, creating new one.');
     }
 
     const urlRegex = /CASINO_URL=.*/;
@@ -63,47 +71,58 @@ function updateEnv(url) {
 
 // --- Main Logic ---
 async function start() {
+    fs.writeFileSync(DEBUG_LOG, 'Starting script...\n');
     killProcesses();
 
-    console.log('Starting Vite server...');
+    log('Starting Vite server...');
     const vite = spawn('npm.cmd', ['run', 'dev', '--', '--port', String(VITE_PORT)], {
         stdio: 'inherit',
-        shell: true
+        shell: true,
+        cwd: CWD
     });
 
-    console.log('Starting Cloudflare Tunnel...');
+    log('Starting Cloudflare Tunnel...');
     // We use a file to capture output because piping directly can be tricky with some CLIs
     const tunnelLogStream = fs.createWriteStream(TUNNEL_LOG);
     const tunnel = spawn('cloudflared', ['tunnel', '--url', `http://localhost:${VITE_PORT}`], {
-        shell: true
+        shell: true,
+        cwd: CWD
     });
 
     tunnel.stdout.pipe(tunnelLogStream);
     tunnel.stderr.pipe(tunnelLogStream);
 
-    console.log('Waiting for Tunnel URL...');
+    log('Waiting for Tunnel URL...');
     
     let tunnelUrl = null;
     const checkInterval = setInterval(() => {
         try {
             if (!fs.existsSync(TUNNEL_LOG)) return;
-            const content = fs.readFileSync(TUNNEL_LOG, 'utf8');
-            const match = content.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
+            const buffer = fs.readFileSync(TUNNEL_LOG);
+            const contentUtf8 = buffer.toString('utf8');
+            const contentUtf16 = buffer.toString('utf16le');
+            
+            let match = contentUtf8.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
+            if (!match) {
+                match = contentUtf16.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
+            }
+
             if (match) {
                 tunnelUrl = match[0];
                 clearInterval(checkInterval);
-                console.log(`Tunnel URL found: ${tunnelUrl}`);
+                log(`Tunnel URL found: ${tunnelUrl}`);
                 
                 updateEnv(tunnelUrl);
                 
-                console.log('Starting Bot...');
+                log('Starting Bot...');
                 const bot = spawn('node', [BOT_SCRIPT], {
                     stdio: 'inherit',
-                    shell: true
+                    shell: true,
+                    cwd: CWD
                 });
 
                 bot.on('close', (code) => {
-                    console.log(`Bot process exited with code ${code}`);
+                    log(`Bot process exited with code ${code}`);
                     process.exit(code);
                 });
             }
@@ -114,7 +133,7 @@ async function start() {
 
     // Handle script exit
     process.on('SIGINT', () => {
-        console.log('Stopping all processes...');
+        log('Stopping all processes...');
         killProcesses();
         process.exit();
     });

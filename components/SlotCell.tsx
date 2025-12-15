@@ -28,7 +28,20 @@ const bonusStrip: SymbolType[] = [
 
 // Helper component for spinning state to avoid hook conditional issues
 const SpinningCell = React.memo(({ theme, isBonusMode }: { theme: ThemeId, isBonusMode: boolean }) => {
-    const stripSymbols = isBonusMode ? bonusStrip : standardStrip;
+    // Only use basic symbols for spinning strip to reduce load
+    // Remove heavy Lotties or complex components from here
+    const stripSymbols = React.useMemo(() => {
+        if (isBonusMode) return [SymbolType.COIN, SymbolType.EMPTY, SymbolType.COIN, SymbolType.EMPTY];
+        // Only use static image symbols for the strip
+        return [
+            SymbolType.SHIELD, 
+            SymbolType.BOT, 
+            SymbolType.STAR, 
+            SymbolType.DIAMOND, 
+            SymbolType.HASH, 
+            SymbolType.NUM
+        ];
+    }, [isBonusMode]);
     
     // Helper to get image URL (duplicated from main component to avoid prop drilling overkill)
     const getImageUrl = (type: SymbolType) => {
@@ -37,35 +50,21 @@ const SpinningCell = React.memo(({ theme, isBonusMode }: { theme: ThemeId, isBon
 
     // Pre-calculate the rendered strip to avoid mapping on every render if props don't change
     const renderedStrip = React.useMemo(() => {
-        // Reduce duplication if possible, but we need enough for loop. 2 sets might be enough if animation is fast.
-        // Keeping 3 for safety but ensuring efficient rendering.
-        return [...stripSymbols, ...stripSymbols, ...stripSymbols].map((type, i) => {
+        // Reduced number of repeats for performance, 2 sets is enough for the blur speed
+        return [...stripSymbols, ...stripSymbols].map((type, i) => {
             const conf = SYMBOL_CONFIG[type];
             if (!conf && type !== SymbolType.COIN) {
                  return <div key={i} className="h-full w-full aspect-square" />;
             }
             
-            if (type === SymbolType.COIN) {
-                return (
-                    <div key={i} className="h-full w-full aspect-square flex items-center justify-center will-change-contents">
-                         <img 
-                            src={THEME_IMAGES[theme]['COIN_STRIP']} 
-                            className="w-3/5 h-3/5 object-contain transform scale-y-[1.2]" 
-                            alt="coin" 
-                            decoding="async"
-                            loading="eager" 
-                         />
-                    </div>
-                );
-            }
-
-            const imgUrl = getImageUrl(type);
+            const imgUrl = type === SymbolType.COIN ? THEME_IMAGES[theme]['COIN_STRIP'] : getImageUrl(type);
+            
             return (
                 <div key={i} className="h-full w-full aspect-square flex items-center justify-center will-change-contents">
                      {imgUrl ? (
                          <img 
                             src={imgUrl} 
-                            className="w-3/5 h-3/5 object-contain transform scale-y-[1.2]" 
+                            className={`${theme === 'obeziana' ? 'w-[85%] h-[85%]' : 'w-3/5 h-3/5'} object-contain transform scale-y-[1.2]`} 
                             alt="" 
                             decoding="async"
                             loading="eager" 
@@ -79,7 +78,7 @@ const SpinningCell = React.memo(({ theme, isBonusMode }: { theme: ThemeId, isBon
     }, [theme, isBonusMode, stripSymbols]);
 
     return (
-      <div className={`w-full h-full rounded-xl ${theme === 'flour' ? 'bg-[#839843] border-black/5' : 'bg-[#232e3c] border-white/5'} overflow-hidden relative transform-gpu`} style={{ willChange: 'transform', backfaceVisibility: 'hidden', transform: 'translate3d(0,0,0)', contain: 'strict', contentVisibility: 'auto' }}>
+      <div className={`w-full h-full rounded-xl ${theme === 'flour' ? 'bg-[#839843] border-black/5' : theme === 'obeziana' ? 'bg-[#7D8359] border-black/5' : 'bg-[#232e3c] border-white/5'} overflow-hidden relative transform-gpu`} style={{ willChange: 'transform', backfaceVisibility: 'hidden', transform: 'translate3d(0,0,0)', contain: 'strict', contentVisibility: 'auto' }}>
          <div className="flex flex-col w-full absolute top-0 left-0 animate-[spinReel_0.5s_linear_infinite] will-change-transform" style={{ backfaceVisibility: 'hidden', perspective: '1000px' }}>
             {renderedStrip}
          </div>
@@ -88,6 +87,17 @@ const SpinningCell = React.memo(({ theme, isBonusMode }: { theme: ThemeId, isBon
 });
 
 const SlotCell: React.FC<SlotCellProps> = React.memo(function SlotCell({ symbol, highlight, isBonusMode, isSpinning, isActiveSpecial, theme, isUnderWild }) {
+  // OPTIMIZATION: If spinning, DO NOT render the complex cell content.
+  // Just render the spinning strip overlay.
+  // IMPORTANT: Do NOT spin if cell is locked (e.g. Obeziana sticky plane or Bonus coins)
+  if (isSpinning && !symbol.isLocked) {
+      return (
+        <div className="w-full h-full relative" style={{ zIndex: 0 }}>
+             <SpinningCell theme={theme} isBonusMode={isBonusMode} />
+        </div>
+      );
+  }
+
   const [lottieData, setLottieData] = useState<any>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
@@ -278,15 +288,21 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(function SlotCell({ symbol,
   // Render Standard Symbol (NFT / Sticker Style)
   const isHighValue = [SymbolType.DIAMOND, SymbolType.HASH, SymbolType.NUM, SymbolType.WILD].includes(symbol.type);
 
+  // Locked/Sticky Visuals for Obeziana
+  const isSticky = theme === 'obeziana' && symbol.isLocked && symbol.type === SymbolType.PLANE;
+
   return (
     <div className={`
         relative w-full h-full flex flex-col items-center justify-center rounded-xl transition-all duration-300 
         ${(isExpanded && theme === 'flour') ? 'overflow-visible z-50' : 'overflow-hidden'}
+        ${isSticky ? 'border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.6)] bg-[#5a2e2e]' : ''}
         ${highlight 
             ? (theme === 'flour' 
                 ? 'bg-[#617524] shadow-[0_0_15px_#617524] z-10 scale-[1.02] border border-[#839843]' 
-                : 'bg-gradient-to-b from-[#2b5278] to-[#1e3a57] shadow-[0_0_15px_#5288c1] z-10 scale-[1.02] border border-[#5288c1]')
-            : (theme === 'flour' ? 'bg-[#839843] border-black/5 shadow-sm hover:bg-[#9ab355]' : 'bg-[#232e3c] border border-white/5 shadow-sm hover:bg-[#2c394b]')
+                : theme === 'obeziana'
+                    ? 'bg-[#8E9465] shadow-[0_0_15px_#8E9465] z-10 scale-[1.02] border border-[#A0A672]'
+                    : 'bg-gradient-to-b from-[#2b5278] to-[#1e3a57] shadow-[0_0_15px_#5288c1] z-10 scale-[1.02] border border-[#5288c1]')
+            : (theme === 'flour' ? 'bg-[#839843] border-black/5 shadow-sm hover:bg-[#9ab355]' : theme === 'obeziana' ? 'bg-[#7D8359] border-black/5 shadow-sm hover:bg-[#8E9465]' : 'bg-[#232e3c] border border-white/5 shadow-sm hover:bg-[#2c394b]')
         }
     `} style={{ 
         willChange: 'transform', 
@@ -308,7 +324,7 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(function SlotCell({ symbol,
           <img 
             src={getImageUrl(symbol.type)} 
             alt={config.label} 
-            className={`${(theme === 'flour' && [SymbolType.GIFT, SymbolType.DIAMOND, SymbolType.NUM].includes(symbol.type)) ? 'w-[95%] h-[95%]' : 'w-4/5 h-4/5'} object-contain drop-shadow-lg ${highlight ? 'brightness-110' : ''}`}
+            className={`${theme === 'obeziana' ? 'w-[95%] h-[95%]' : (theme === 'flour' && [SymbolType.GIFT, SymbolType.DIAMOND, SymbolType.NUM].includes(symbol.type)) ? 'w-[95%] h-[95%]' : 'w-4/5 h-4/5'} object-contain drop-shadow-lg ${highlight ? 'brightness-110' : ''}`}
             decoding="async"
           />
          ) : (
@@ -355,6 +371,16 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(function SlotCell({ symbol,
                 </>
             )}
         </>
+      )}
+
+      {/* Sticky Effect for Obeziana */}
+      {isSticky && (
+          <div className="absolute inset-0 z-20 pointer-events-none">
+              <div className="absolute inset-0 border-2 border-red-500 rounded-xl animate-pulse" />
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center shadow-md">
+                  <span className="text-[10px] text-white font-bold">L</span>
+              </div>
+          </div>
       )}
     </div>
   );

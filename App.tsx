@@ -13,7 +13,7 @@ import { useGameEngine } from './hooks/useGameEngine';
 
 // Configuration
 const BET_VALUES = [0.1, 0.3, 0.5, 1, 1.5, 2, 2.5];
-const STAR_BET_VALUES = [1, 5, 10, 25, 50, 100, 250, 500];
+const STAR_BET_VALUES = [1, 5, 10, 25, 50];
 
 export default function App() {
   useEffect(() => {
@@ -176,8 +176,24 @@ export default function App() {
     isMuted
   });
 
+  const obezianaEngine = useGameEngine({
+    balance,
+    setBalance,
+    starsBalance,
+    setStarsBalance,
+    bet,
+    currency,
+    isActive: currentTheme === 'obeziana',
+    theme: 'obeziana',
+    onTransaction: handleTransaction,
+    isMuted,
+    rows: 3,
+    cols: 3
+  });
+
   // Select active engine based on theme
-  const activeEngine = currentTheme === 'durov' ? durovEngine : flourEngine;
+  const activeEngine = currentTheme === 'durov' ? durovEngine : 
+                       currentTheme === 'flour' ? flourEngine : obezianaEngine;
 
   const {
     grid,
@@ -188,6 +204,7 @@ export default function App() {
     spinningColumns,
     bonusEffects,
     activeSpecialCells,
+    stickyPlanes,
     handleSpin,
     handleBuyBonus
   } = activeEngine;
@@ -200,12 +217,18 @@ export default function App() {
   const currentBetValues = currency === 'TON' ? BET_VALUES : STAR_BET_VALUES;
   const currentBalance = currency === 'TON' ? balance : starsBalance;
 
+  // New logic: Lock bet if there are sticky planes in Obeziana theme
+  const hasStickyPlanes = currentTheme === 'obeziana' && stickyPlanes && stickyPlanes.some(p => p.life > 0);
+  const isBetLocked = hasStickyPlanes;
+
   const increaseBet = () => {
+      if (isBetLocked) return;
       const idx = currentBetValues.indexOf(bet);
       if (idx < currentBetValues.length - 1) setBet(currentBetValues[idx + 1]);
   };
 
   const decreaseBet = () => {
+      if (isBetLocked) return;
       const idx = currentBetValues.indexOf(bet);
       if (idx > 0) setBet(currentBetValues[idx - 1]);
   };
@@ -214,7 +237,7 @@ export default function App() {
   const isBonus = gameState === GameState.BONUS_ACTIVE || gameState === GameState.BONUS_TRANSITION || gameState === GameState.BONUS_PAYOUT;
 
   useEffect(() => {
-    const nextUrl = currentTheme === 'durov' ? "/fonsik 2.png" : "/fonflow.png";
+    const nextUrl = currentTheme === 'durov' ? "/fonsik 2.png" : currentTheme === 'obeziana' ? "/makakaFON.png" : "/fonflow.png";
     const img = new Image();
     img.src = nextUrl;
     setBgReady(false);
@@ -241,9 +264,9 @@ export default function App() {
       />
 
       {/* Sidebar (Desktop) / Header (Mobile) */}
-      <div className={`w-full md:w-80 md:border-r border-white/5 flex flex-col z-20 shadow-xl ${currentTheme === 'flour' ? 'bg-[#132a13]' : 'bg-[#17212b]'}`}>
+      <div className={`w-full md:w-80 md:border-r border-white/5 flex flex-col z-20 shadow-xl ${currentTheme === 'flour' ? 'bg-[#132a13]' : currentTheme === 'obeziana' ? 'bg-[#363529]' : 'bg-[#17212b]'}`}>
         {/* Header */}
-        <div className={`h-14 flex items-center justify-between px-4 border-b border-white/5 ${currentTheme === 'flour' ? 'bg-[#132a13]' : 'bg-[#232e3c]'}`}>
+        <div className={`h-14 flex items-center justify-between px-4 border-b border-white/5 ${currentTheme === 'flour' ? 'bg-[#132a13]' : currentTheme === 'obeziana' ? 'bg-[#363529]' : 'bg-[#232e3c]'}`}>
             <div className="flex items-center gap-2">
                 <div className="flex flex-col">
                     <span className="font-bold text-sm leading-tight">GIFT SLOT</span>
@@ -269,7 +292,7 @@ export default function App() {
         {/* Balance Card & Currency Switch */}
         <div className="p-4 flex flex-col gap-3">
              {/* Currency Switcher Removed */}
-            <div className={`${currentTheme === 'flour' ? 'bg-[#31572c] border border-white/10' : 'glass-panel'} p-4 rounded-2xl flex flex-col gap-1 relative overflow-hidden group`}>
+            <div className={`${currentTheme === 'flour' ? 'bg-[#31572c] border border-white/10' : currentTheme === 'obeziana' ? 'bg-[#363529] border border-white/10' : 'glass-panel'} p-4 rounded-2xl flex flex-col gap-1 relative overflow-hidden group`}>
                  <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
                      {currency === 'TON' ? <Wallet size={48} /> : <Star size={48} />}
                  </div>
@@ -300,20 +323,29 @@ export default function App() {
              <div className="flex flex-col gap-4">
                  {/* Durov Slot Button */}
                  <button 
-                    onClick={() => !isGameLocked && setCurrentTheme('durov')}
-                    disabled={isGameLocked}
-                    className={`w-full hover:scale-105 transition-transform duration-200 group ${currentTheme === 'durov' ? 'ring-2 ring-blue-500 rounded-xl' : ''} ${isGameLocked ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''}`}
+                    onClick={() => !isGameLocked && !isBetLocked && setCurrentTheme('durov')}
+                    disabled={isGameLocked || isBetLocked}
+                    className={`w-full hover:scale-105 transition-transform duration-200 group ${currentTheme === 'durov' ? 'ring-2 ring-blue-500 rounded-xl' : ''} ${isGameLocked || isBetLocked ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''}`}
                  >
                      <img src="/durovslot.png" alt="Durov Slot" className="w-full h-auto rounded-xl shadow-lg border border-white/10 group-hover:shadow-blue-500/20" />
                  </button>
 
                  {/* Flour Slot Button */}
                  <button 
-                    onClick={() => !isGameLocked && setCurrentTheme('flour')}
-                    disabled={isGameLocked}
-                    className={`w-full hover:scale-105 transition-transform duration-200 group ${currentTheme === 'flour' ? 'ring-2 ring-blue-500 rounded-xl' : ''} ${isGameLocked ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''}`}
+                    onClick={() => !isGameLocked && !isBetLocked && setCurrentTheme('flour')}
+                    disabled={isGameLocked || isBetLocked}
+                    className={`w-full hover:scale-105 transition-transform duration-200 group ${currentTheme === 'flour' ? 'ring-2 ring-blue-500 rounded-xl' : ''} ${isGameLocked || isBetLocked ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''}`}
                  >
                      <img src="/flourslot.png" alt="Flour Slot" className="w-full h-auto rounded-xl shadow-lg border border-white/10 group-hover:shadow-blue-500/20" />
+                 </button>
+
+                 {/* Third Button */}
+                 <button 
+                    onClick={() => !isGameLocked && !isBetLocked && setCurrentTheme('obeziana')}
+                    disabled={isGameLocked || isBetLocked}
+                    className={`w-full hover:scale-105 transition-transform duration-200 group ${currentTheme === 'obeziana' ? 'ring-2 ring-blue-500 rounded-xl' : ''} ${isGameLocked || isBetLocked ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''}`}
+                 >
+                     <img src="/OBEZIANANANA.png" alt="Obeziana Slot" className="w-full h-auto rounded-xl shadow-lg border border-white/10 group-hover:shadow-blue-500/20" />
                  </button>
              </div>
 
@@ -394,12 +426,17 @@ export default function App() {
       </main>
 
       {/* Controls Bar (Mobile Bottom / Desktop Bottom Sticky) */}
-      <div className={`${currentTheme === 'flour' ? 'bg-[#132a13]' : 'bg-[#17212b]'} border-t border-white/5 p-4 z-30 md:hidden`}>
+      <div className={`${currentTheme === 'flour' ? 'bg-[#132a13]' : currentTheme === 'obeziana' ? 'bg-[#363529]' : 'bg-[#17212b]'} border-t border-white/5 p-4 z-30 md:hidden`}>
          
          {/* Mobile Theme Switcher */}
          <div className="flex items-center justify-between gap-2 mb-2">
             <button 
-                onClick={() => !isGameLocked && setCurrentTheme(currentTheme === 'durov' ? 'flour' : 'durov')}
+                onClick={() => {
+                    if (isGameLocked) return;
+                    if (currentTheme === 'durov') setCurrentTheme('obeziana');
+                    else if (currentTheme === 'flour') setCurrentTheme('durov');
+                    else setCurrentTheme('flour');
+                }}
                 disabled={isGameLocked}
                 className="p-1 rounded-full bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
             >
@@ -414,7 +451,7 @@ export default function App() {
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.9 }}
                         transition={{ duration: 0.2 }}
-                        src={currentTheme === 'durov' ? "/durovslot.png" : "/flourslot.png"} 
+                        src={currentTheme === 'durov' ? "/durovslot.png" : currentTheme === 'flour' ? "/flourslot.png" : "/OBEZIANANANA.png"} 
                         alt="Theme Preview" 
                         className="h-full w-full object-contain drop-shadow-lg pointer-events-none"
                     />
@@ -422,7 +459,12 @@ export default function App() {
             </div>
 
             <button 
-                onClick={() => !isGameLocked && setCurrentTheme(currentTheme === 'durov' ? 'flour' : 'durov')}
+                onClick={() => {
+                    if (isGameLocked) return;
+                    if (currentTheme === 'durov') setCurrentTheme('flour');
+                    else if (currentTheme === 'flour') setCurrentTheme('obeziana');
+                    else setCurrentTheme('durov');
+                }}
                 disabled={isGameLocked}
                 className="p-1 rounded-full bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
             >
@@ -432,10 +474,15 @@ export default function App() {
 
          {/* Simple Mobile Controls - mirrored from sidebar logic but simplified */}
              <div className="flex gap-2">
-                 <div className="flex-1 glass-panel rounded-xl p-1 flex items-center justify-between px-2">
-                     <button onClick={decreaseBet} disabled={isGameLocked || bet <= currentBetValues[0]} className="w-8 h-8 rounded bg-white/5 text-blue-400 font-bold disabled:opacity-50">-</button>
-                     <span className="font-bold text-sm">{bet}</span>
-                     <button onClick={increaseBet} disabled={isGameLocked || bet >= currentBetValues[currentBetValues.length - 1]} className="w-8 h-8 rounded bg-white/5 text-blue-400 font-bold disabled:opacity-50">+</button>
+                 <div className={`flex-1 ${currentTheme === 'obeziana' ? 'bg-[#2D2F23]' : 'glass-panel'} rounded-xl p-1 flex items-center justify-between px-2 relative`}>
+                     {isBetLocked && (
+                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-[10px] px-2 py-1 rounded pointer-events-none whitespace-nowrap">
+                            Ставка заблокирована
+                        </div>
+                     )}
+                     <button onClick={decreaseBet} disabled={isGameLocked || isBetLocked || bet <= currentBetValues[0]} className="w-8 h-8 rounded bg-white/5 text-blue-400 font-bold disabled:opacity-50">-</button>
+                     <span className={`font-bold text-sm ${isBetLocked ? 'text-gray-400' : 'text-white'}`}>{bet}</span>
+                     <button onClick={increaseBet} disabled={isGameLocked || isBetLocked || bet >= currentBetValues[currentBetValues.length - 1]} className="w-8 h-8 rounded bg-white/5 text-blue-400 font-bold disabled:opacity-50">+</button>
                  </div>
                  
                  {/* Buy Bonus Mobile */}
@@ -462,7 +509,9 @@ export default function App() {
                  flex items-center justify-center gap-2
                  ${isGameLocked 
                     ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
-                    : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-blue-500/30 active:scale-95'
+                    : currentTheme === 'obeziana'
+                        ? 'bg-[#74884F] text-white shadow-[#74884F]/30 active:scale-95'
+                        : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-blue-500/30 active:scale-95'
                  }
                `}
              >

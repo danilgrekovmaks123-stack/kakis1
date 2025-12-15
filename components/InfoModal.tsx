@@ -50,22 +50,49 @@ export default function InfoModal({ isOpen, onClose, theme }: InfoModalProps) {
             <section>
               <h3 className="text-lg font-bold text-blue-400 mb-3 uppercase tracking-wider">Как играть</h3>
               <ul className="space-y-2 text-gray-300 text-sm">
-                <li className="flex gap-2">
-                  <span className="text-blue-400">•</span>
-                  Соберите 3, 4 или 5 символов на линии для выигрыша.
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-blue-400">•</span>
-                  Линии оплачиваются слева направо.
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-blue-400">•</span>
-                  5+ Монет запускают Бонусную Игру.
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-blue-400">•</span>
-                  WILD заменяет любой символ, кроме Бонусных Монет.
-                </li>
+                {theme === 'obeziana' ? (
+                  <>
+                    <li className="flex gap-2">
+                      <span className="text-blue-400">•</span>
+                      <span><strong>Цель:</strong> Соберите 3 одинаковых обезьяны в ряд, чтобы получить выигрыш.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-blue-400">•</span>
+                      <span><strong>Поле:</strong> Компактное поле 3x3 — идеально для быстрых побед.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-blue-400">•</span>
+                      <span><strong>Символы:</strong> Каждая обезьяна имеет свою ценность. Чем реже символ, тем больше награда!</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-blue-400">•</span>
+                      <span><strong>Максимальный выигрыш:</strong> Поймайте 3 Горячию Обезьяну и умножте ставку в <strong>x20</strong> раз!</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-blue-400">•</span>
+                      <span><strong>Стратегия:</strong> Играйте чаще — мелкие выигрыши выпадают постоянно, поддерживая баланс.</span>
+                    </li>
+                  </>
+                ) : (
+                  <>
+                    <li className="flex gap-2">
+                      <span className="text-blue-400">•</span>
+                      Соберите 3, 4 или 5 символов на линии для выигрыша.
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-blue-400">•</span>
+                      Линии оплачиваются слева направо.
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-blue-400">•</span>
+                      5+ Монет запускают Бонусную Игру.
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-blue-400">•</span>
+                      WILD заменяет любой символ, кроме Бонусных Монет.
+                    </li>
+                  </>
+                )}
               </ul>
             </section>
 
@@ -77,6 +104,11 @@ export default function InfoModal({ isOpen, onClose, theme }: InfoModalProps) {
                   const symbol = SYMBOL_CONFIG[type];
                   const imageUrl = THEME_IMAGES[theme][type] || symbol.imageUrl;
                   
+                  // Exclusions for Obeziana
+                  if (theme === 'obeziana') {
+                      if (type === SymbolType.WILD || type === SymbolType.COIN || type === SymbolType.LOCK) return null;
+                  }
+
                   if (symbol.multiplier === 0 && type !== SymbolType.WILD) return null; // Skip specials except WILD
 
                   return (
@@ -106,6 +138,7 @@ export default function InfoModal({ isOpen, onClose, theme }: InfoModalProps) {
             </section>
 
             {/* Features */}
+            {theme !== 'obeziana' && (
             <section className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-2xl p-5 border border-white/5">
               <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
                 <Zap className="text-yellow-400" size={20} />
@@ -158,6 +191,7 @@ export default function InfoModal({ isOpen, onClose, theme }: InfoModalProps) {
                 </div>
               </div>
             </section>
+            )}
 
           </div>
         </motion.div>

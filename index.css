@@ -1,1 +1,17 @@
 /* Global styles */
+
+/* Optimize animations */
+.will-change-transform {
+  will-change: transform;
+}
+
+.will-change-contents {
+  will-change: contents;
+}
+
+/* Force hardware acceleration */
+.transform-gpu {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}

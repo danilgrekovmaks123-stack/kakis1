@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SymbolData, GameState, ROWS, COLS } from '../types';
+import { SymbolData, GameState } from '../types';
 import { ThemeId } from '../constants';
 import BonusOverlay from './BonusOverlay';
 import GameColumn from './GameColumn';
@@ -31,9 +31,18 @@ const GameGrid: React.FC<GameGridProps> = ({
   currency
 }) => {
   const isBonus = gameState === GameState.BONUS_ACTIVE || gameState === GameState.BONUS_TRANSITION || gameState === GameState.BONUS_PAYOUT;
+  
+  const cols = grid[0]?.length || 5;
+  const rows = grid.length || 4;
+
+  const getGridColsClass = () => {
+      if (cols === 3) return 'grid-cols-3';
+      if (cols === 5) return 'grid-cols-5';
+      return 'grid-cols-5'; // default
+  };
 
   return (
-    <div className={`relative p-3 rounded-3xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden ${currentTheme === 'flour' ? 'bg-[#52612D]' : 'bg-[#17212b]'}`} style={{ contentVisibility: 'auto', contain: 'paint' }}>
+    <div className={`relative p-3 rounded-3xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden ${currentTheme === 'flour' ? 'bg-[#52612D]' : currentTheme === 'obeziana' ? 'bg-[#393D2B]' : 'bg-[#17212b]'}`} style={{ contentVisibility: 'auto', contain: 'paint' }}>
       {/* Decorative Top Shine */}
       <div className="absolute top-0 left-10 right-10 h-[1px] bg-gradient-to-r from-transparent via-blue-400/50 to-transparent" />
 
@@ -42,10 +51,12 @@ const GameGrid: React.FC<GameGridProps> = ({
       {/* Effect Layer for Coin Animations */}
       <AnimatePresence>
         {bonusEffects.map(effect => {
-            const startX = `${effect.from.c * 20 + 10}%`;
-            const startY = `${effect.from.r * 25 + 12.5}%`;
-            const endX = `${effect.to.c * 20 + 10}%`;
-            const endY = `${effect.to.r * 25 + 12.5}%`;
+            const colWidth = 100 / cols;
+            const rowHeight = 100 / rows;
+            const startX = `${effect.from.c * colWidth + colWidth/2}%`;
+            const startY = `${effect.from.r * rowHeight + rowHeight/2}%`;
+            const endX = `${effect.to.c * colWidth + colWidth/2}%`;
+            const endY = `${effect.to.r * rowHeight + rowHeight/2}%`;
 
             return (
                 <motion.div
@@ -64,8 +75,8 @@ const GameGrid: React.FC<GameGridProps> = ({
         })}
       </AnimatePresence>
 
-      <div className="grid grid-cols-5 gap-2 md:gap-3" style={{ willChange: 'transform', backfaceVisibility: 'hidden' }}>
-        {Array.from({ length: COLS }).map((_, cIndex) => {
+      <div className={`grid ${getGridColsClass()} gap-2 md:gap-3`} style={{ willChange: 'transform', backfaceVisibility: 'hidden' }}>
+        {Array.from({ length: cols }).map((_, cIndex) => {
             // Pre-slice the column data
             const gridColumn = grid.map(row => row[cIndex]);
             

@@ -1,8 +1,11 @@
 import { SymbolType, SymbolData, CoinType, ROWS, COLS } from '../types';
-import { DUROV_WEIGHTS, FLOUR_WEIGHTS, BONUS_WEIGHTS, SYMBOL_CONFIG, ThemeId } from '../constants';
+import { DUROV_WEIGHTS, FLOUR_WEIGHTS, OBEZIANA_WEIGHTS, BONUS_WEIGHTS, SYMBOL_CONFIG, ThemeId } from '../constants';
 
 export const getRandomSymbol = (isBonus: boolean = false, bet: number = 1, theme: ThemeId = 'durov'): SymbolData => {
-  const weights = isBonus ? BONUS_WEIGHTS : (theme === 'durov' ? DUROV_WEIGHTS : FLOUR_WEIGHTS);
+  let weights = theme === 'durov' ? DUROV_WEIGHTS : FLOUR_WEIGHTS;
+  if (theme === 'obeziana') weights = OBEZIANA_WEIGHTS;
+  if (isBonus) weights = BONUS_WEIGHTS;
+
   const totalWeight = weights.reduce((acc, item) => acc + item.weight, 0);
   let random = Math.random() * totalWeight;
   
@@ -21,29 +24,27 @@ export const getRandomSymbol = (isBonus: boolean = false, bet: number = 1, theme
 
   if (selectedType === SymbolType.COIN) {
     // Bet-dependent values with chance for higher wins
-    // User req: 10 -> 15, 20 (small chance). 0.1 -> 0.2, 0.3 (max).
+    // User req: INCREASED WINS
     const valRoll = Math.random();
-    let mult = 0.1;
+    let mult = 0.5;
     
-    if (valRoll > 0.97) {
-        // Max win: 3.0x for small bets (TON), 2.0x for large bets (Stars)
-        mult = bet < 1 ? 3.0 : 2.0; 
-        // Durov can give higher mults rarely
-        if (theme === 'durov' && Math.random() > 0.8) mult = 5.0;
-    } else if (valRoll > 0.93) {
-        mult = 2.0; // 0.1 -> 0.2, 10 -> 20
-    } else if (valRoll > 0.85) {
-        mult = 1.5; // 10 -> 15
-    } else if (valRoll > 0.75) {
-        mult = 1.2; // 10 -> 12
-    } else if (valRoll > 0.60) {
-        mult = 1.0; // Equal to bet
-    } else if (valRoll > 0.40) {
-        mult = 0.5;
-    } else if (valRoll > 0.20) {
-        mult = 0.3;
+    if (valRoll > 0.90) {
+        // Max win: 5.0x for all bets (Very High Chance)
+        mult = 5.0; 
+        // Durov can give higher mults more often
+        if (theme === 'durov' && Math.random() > 0.6) mult = 10.0;
+    } else if (valRoll > 0.80) {
+        mult = 3.0; 
+    } else if (valRoll > 0.65) {
+        mult = 2.0; 
+    } else if (valRoll > 0.50) {
+        mult = 1.5; 
+    } else if (valRoll > 0.30) {
+        mult = 1.0; 
+    } else if (valRoll > 0.15) {
+        mult = 0.8;
     } else {
-        mult = 0.1;
+        mult = 0.5;
     }
 
     // Ensure integers for display niceness if bet is large enough, else 1 decimal
@@ -54,9 +55,9 @@ export const getRandomSymbol = (isBonus: boolean = false, bet: number = 1, theme
     // Special coin types
     if (isBonus) {
         const typeRoll = Math.random();
-        // Red (Multiplier) and Yellow (Collect)
-        if (typeRoll > 0.95) coinType = CoinType.COLLECT; // Yellow
-        else if (typeRoll > 0.90) coinType = CoinType.MULTIPLIER; // Red
+        // Red (Multiplier) and Yellow (Collect) - INCREASED CHANCES
+        if (typeRoll > 0.80) coinType = CoinType.COLLECT; // Yellow (20% chance)
+        else if (typeRoll > 0.60) coinType = CoinType.MULTIPLIER; // Red (20% chance)
         else coinType = CoinType.STANDARD; // Blue
     }
   }
@@ -70,7 +71,15 @@ export const getRandomSymbol = (isBonus: boolean = false, bet: number = 1, theme
   };
 };
 
-export const generateGrid = (rows: number, cols: number, isBonus: boolean = false, bet: number = 1, theme: ThemeId = 'durov'): SymbolData[][] => {
+export const generateGrid = (
+  rows: number, 
+  cols: number, 
+  isBonus: boolean = false, 
+  bet: number = 1, 
+  theme: ThemeId = 'durov',
+  lockedCells: {r: number, c: number}[] = [],
+  currentGrid?: SymbolData[][]
+): SymbolData[][] => {
   const grid: SymbolData[][] = [];
   
   // Initialize empty grid
@@ -83,6 +92,13 @@ export const generateGrid = (rows: number, cols: number, isBonus: boolean = fals
     let hasWildInColumn = false;
 
     for (let r = 0; r < rows; r++) {
+      // If cell is locked and we have previous grid, preserve it
+      const isLocked = lockedCells.some(cell => cell.r === r && cell.c === c);
+      if (isLocked && currentGrid && currentGrid[r] && currentGrid[r][c]) {
+          grid[r][c] = { ...currentGrid[r][c], isLocked: true };
+          continue;
+      }
+
       let symbol = getRandomSymbol(isBonus, bet, theme);
 
       // Constraint: Only one Wild per column (line)
@@ -107,8 +123,32 @@ export const generateGrid = (rows: number, cols: number, isBonus: boolean = fals
 export const checkWin = (grid: SymbolData[][], bet: number, theme: ThemeId = 'durov') => {
   let winAmount = 0;
   const winningLines: { row: number, col: number }[] = [];
+  const rows = grid.length;
+  const cols = grid[0]?.length || 0;
 
-  for (let r = 0; r < ROWS; r++) {
+  // SPECIAL LOGIC FOR OBEZIANA (Scatter Pay for PLANE / Demonmakaka)
+  if (theme === 'obeziana') {
+      let planeCount = 0;
+      const planeCells: {r: number, c: number}[] = [];
+
+      for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+              if (grid[r][c].type === SymbolType.PLANE) {
+                  planeCount++;
+                  planeCells.push({r, c});
+              }
+          }
+      }
+
+      // 3 Planes = Win 20x
+      if (planeCount >= 3) {
+          const mult = SYMBOL_CONFIG[SymbolType.PLANE].multiplier; // Should be 20 now
+          winAmount += (bet * mult);
+          planeCells.forEach(cell => winningLines.push({row: cell.r, col: cell.c}));
+      }
+  }
+
+  for (let r = 0; r < rows; r++) {
     let matchCount = 1;
     
     // Determine start symbol with expansion logic
@@ -120,7 +160,7 @@ export const checkWin = (grid: SymbolData[][], bet: number, theme: ThemeId = 'du
     let currentSymbol = firstCellType;
     let isWildStart = currentSymbol === SymbolType.WILD;
 
-    for (let c = 1; c < COLS; c++) {
+    for (let c = 1; c < cols; c++) {
       const cell = grid[r][c];
       let cellType = cell.type;
 
@@ -141,6 +181,10 @@ export const checkWin = (grid: SymbolData[][], bet: number, theme: ThemeId = 'du
         break;
       }
     }
+
+    // Skip standard win check for PLANE in Obeziana if handled above (or allow double win? usually scatter is separate)
+    // But since Obeziana is 3x3 and scatter is "anywhere", lines don't matter for Plane.
+    if (theme === 'obeziana' && currentSymbol === SymbolType.PLANE) continue;
 
     if (matchCount >= 3 && currentSymbol !== SymbolType.COIN) {
        // Base win calc: Bet * SymbolMult * LengthMult

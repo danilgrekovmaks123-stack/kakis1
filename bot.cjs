@@ -89,6 +89,11 @@ function getPromocodes() {
         savePromocodes(promos);
     }
 
+    if (promos["GIFTSL"]) {
+        delete promos["GIFTSL"];
+        savePromocodes(promos);
+    }
+
     if (!promos["SUCHKA"]) {
         promos["SUCHKA"] = {
             reward: 3,
@@ -98,11 +103,21 @@ function getPromocodes() {
         savePromocodes(promos);
     }
 
-    if (!promos["GIFTSL"]) {
-        promos["GIFTSL"] = {
-            reward: 2,
+    if (!promos["MONKEY"]) {
+        promos["MONKEY"] = {
+            reward: 4,
             currency: "STARS",
             usedBy: []
+        };
+        savePromocodes(promos);
+    }
+
+    if (!promos["SAFVADFASS100"]) {
+        promos["SAFVADFASS100"] = {
+            reward: 100,
+            currency: "STARS",
+            usedBy: [],
+            maxUsages: 1
         };
         savePromocodes(promos);
     }
