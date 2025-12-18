@@ -28,8 +28,22 @@ const GameColumn: React.FC<GameColumnProps> = ({
   isBonusMode
 }) => {
   const rows = gridColumn.length;
+  
+  // Bounce animation when spinning stops
+  const [isBouncing, setIsBouncing] = React.useState(false);
+  const prevSpinning = React.useRef(isSpinning);
+
+  React.useEffect(() => {
+      if (prevSpinning.current && !isSpinning) {
+          setIsBouncing(true);
+          const timer = setTimeout(() => setIsBouncing(false), 400);
+          return () => clearTimeout(timer);
+      }
+      prevSpinning.current = isSpinning;
+  }, [isSpinning]);
+
   return (
-    <div className="flex flex-col gap-2 md:gap-3">
+    <div className={`flex flex-col gap-2 md:gap-3 ${isBouncing ? 'animate-bounceReel' : ''}`}>
       {gridColumn.map((cell, rIndex) => {
         const isWinning = winningLines.some(l => l.row === rIndex && l.col === cIndex);
         const isActiveSpecial = activeSpecialCells.some(c => c.r === rIndex && c.c === cIndex);

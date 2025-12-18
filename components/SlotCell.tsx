@@ -313,7 +313,7 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(function SlotCell({ symbol,
       {!(isExpanded && theme === 'flour' && symbol.type === SymbolType.WILD) && (
       <div 
         style={{ color: config.color }} 
-        className={`w-full h-full flex items-center justify-center transform transition-transform duration-300 ${highlight ? 'scale-110 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]' : 'scale-100'}`}
+        className={`w-full h-full flex items-center justify-center transform transition-transform duration-300 ${highlight ? 'scale-110 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] animate-winPulse' : 'scale-100'}`}
       >
          {/* Icon or Image Container */}
          {(symbol.type === SymbolType.PLANE || symbol.type === SymbolType.WILD) && lottieData ? (
