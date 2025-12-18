@@ -4,8 +4,8 @@ import { SymbolData, SymbolType, CoinType, GameState, ROWS, COLS } from '../type
 import { ThemeId } from '../constants';
 
 // Configuration
-const REEL_DELAY = 300; // Delay between each reel stopping
-const MIN_SPIN_TIME = 1500; // Minimum time before reels start stopping
+const REEL_DELAY = 150; // Faster stops (was 300)
+const MIN_SPIN_TIME = 800; // Faster spin start (was 1500)
 
 interface UseGameEngineProps {
   balance: number;

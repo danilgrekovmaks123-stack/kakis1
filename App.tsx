@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SymbolData, SymbolType, CoinType, GameState, ROWS, COLS } from './types';
-import { ThemeId } from './constants';
+import { ThemeId, THEME_IMAGES } from './constants';
 import SlotCell from './components/SlotCell';
 import BonusOverlay from './components/BonusOverlay';
 import GameGrid from './components/GameGrid';
@@ -10,12 +10,71 @@ import DepositModal from './components/DepositModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Loader2, Wallet, X, Volume2, VolumeX, Settings, Info, Zap, Star, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useGameEngine } from './hooks/useGameEngine';
+import pako from 'pako'; // For preloading Lotties if needed
 
 // Configuration
 const BET_VALUES = [0.1, 0.3, 0.5, 1, 1.5, 2, 2.5];
 const STAR_BET_VALUES = [1, 5, 10, 25, 50];
 
+// Global preloader cache to avoid re-running
+const PRELOADED = {
+  images: false,
+  lotties: false
+};
+
 export default function App() {
+  // Preload Images and Lotties
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    // 1. Preload Static Images
+    if (!PRELOADED.images) {
+      PRELOADED.images = true;
+      const allThemes: ThemeId[] = ['durov', 'flour', 'obeziana'];
+      const imagesToLoad: string[] = [];
+
+      allThemes.forEach(t => {
+        Object.values(THEME_IMAGES[t]).forEach(url => {
+          if (url && (url.endsWith('.png') || url.endsWith('.svg') || url.endsWith('.jpg'))) {
+             imagesToLoad.push(url);
+          }
+        });
+      });
+
+      // Also preload Backgrounds
+      imagesToLoad.push("/fonsik 2.png", "/makakaFON.png", "/fonflow.png", "/durovslot.png", "/flourslot.png", "/OBEZIANANANA.png");
+
+      imagesToLoad.forEach(src => {
+        const img = new Image();
+        img.src = src;
+        // Optional: img.decode()
+        if (img.decode) {
+            img.decode().catch(() => {});
+        }
+      });
+      console.log(`Preloading ${imagesToLoad.length} images...`);
+    }
+
+    // 2. Preload Lottie Animations (Fetch & Cache)
+    // We can't parse them easily here without duplicating SlotCell logic, but we can FETCH them to disk cache.
+    if (!PRELOADED.lotties) {
+       PRELOADED.lotties = true;
+       const lotties = [
+         THEME_IMAGES['durov']['ANIMATION_PLANE'],
+         THEME_IMAGES['durov']['ANIMATION_WILD'],
+         THEME_IMAGES['flour']['ANIMATION_PLANE'],
+         THEME_IMAGES['flour']['ANIMATION_WILD'],
+         THEME_IMAGES['obeziana']['ANIMATION_PLANE'],
+         THEME_IMAGES['obeziana']['ANIMATION_WILD'],
+       ].filter(Boolean);
+       
+       lotties.forEach(url => {
+           fetch(url).catch(() => {}); // Just fetch to populate browser cache
+       });
+    }
+
+  }, []);
+
   useEffect(() => {
     const w = window as any;
     if (w.Telegram && w.Telegram.WebApp) {
@@ -36,7 +95,19 @@ export default function App() {
                 if (d.stars !== undefined) setStarsBalance(d.stars);
             })
             .catch(e => console.error('Failed to fetch balance', e));
+      } else {
+          // DEV MODE: If no Telegram User, use Test ID and give 1000 Stars
+          const TEST_ID = 123456;
+          setUserId(TEST_ID);
+          setStarsBalance(1000);
+          console.log('Dev Mode: 1000 Stars added to Test User');
       }
+    } else {
+        // Fallback for browser (outside Telegram)
+        const TEST_ID = 123456;
+        setUserId(TEST_ID);
+        setStarsBalance(1000);
+        console.log('Browser Dev Mode: 1000 Stars added');
     }
   }, []);
   const [currency, setCurrency] = useState<'TON' | 'STARS'>('STARS');

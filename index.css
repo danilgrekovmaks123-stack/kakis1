@@ -1,5 +1,9 @@
 /* Global styles */
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Optimize animations */
 .will-change-transform {
   will-change: transform;
@@ -14,4 +18,13 @@
   transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
   perspective: 1000px;
+}
+
+@keyframes spinReel {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+
+.animate-spinReel {
+  animation: spinReel 0.3s linear infinite; /* Faster spin by default */
 }

@@ -128,43 +128,49 @@ export const COIN_COLORS: Record<CoinType, string> = {
 };
 
 export const DUROV_WEIGHTS: { type: SymbolType; weight: number }[] = [
-  { type: SymbolType.PLANE, weight: 5 },   // High value (reduced)
-  { type: SymbolType.LOCK, weight: 3 },    // High value (reduced)
-  { type: SymbolType.SHIELD, weight: 80 }, // Low value (increased)
-  { type: SymbolType.BOT, weight: 60 },    // Mid
-  { type: SymbolType.STAR, weight: 60 },   // Mid
-  { type: SymbolType.GIFT, weight: 20 },   // High value (reduced)
-  { type: SymbolType.DIAMOND, weight: 10 }, // High value (reduced)
-  { type: SymbolType.HASH, weight: 80 },  // Low value (increased)
-  { type: SymbolType.NUM, weight: 80 },   // Low value (increased)
-  { type: SymbolType.WILD, weight: 10 },    // Special (reduced)
-  { type: SymbolType.COIN, weight: 15 },   // Bonus (reduced)
+  // High Volatility: Rare but Big
+  // Low weights for High Paying symbols
+  { type: SymbolType.PLANE, weight: 3 },    // Very Rare (20x) (Reduced from 4)
+  { type: SymbolType.LOCK, weight: 3 },     // Rare (10x) (Reduced from 4)
+  { type: SymbolType.SHIELD, weight: 120 }, // Common Filler (1x) (Increased from 100)
+  { type: SymbolType.BOT, weight: 100 },    // Common Filler (1.5x) (Increased from 80)
+  { type: SymbolType.STAR, weight: 50 },    // Mid (2x) (Reduced from 60)
+  { type: SymbolType.GIFT, weight: 8 },     // Rare (2.5x) (Reduced from 10)
+  { type: SymbolType.DIAMOND, weight: 6 },  // Rare (4x) (Reduced from 8)
+  { type: SymbolType.HASH, weight: 120 },   // Common Filler (0.7x) (Increased from 100)
+  { type: SymbolType.NUM, weight: 120 },    // Common Filler (0.8x) (Increased from 100)
+  { type: SymbolType.WILD, weight: 4 },     // Very Rare (Connects everything) (Reduced from 5)
+  { type: SymbolType.COIN, weight: 8 },     // Rare Bonus (Reduced from 10)
 ];
 
 export const FLOUR_WEIGHTS: { type: SymbolType; weight: number }[] = [
-  { type: SymbolType.PLANE, weight: 8 },   
-  { type: SymbolType.LOCK, weight: 4 },    
-  { type: SymbolType.SHIELD, weight: 70 }, 
-  { type: SymbolType.BOT, weight: 60 },    
-  { type: SymbolType.STAR, weight: 60 },   
-  { type: SymbolType.GIFT, weight: 30 },   
-  { type: SymbolType.DIAMOND, weight: 15 }, 
-  { type: SymbolType.HASH, weight: 70 },   
-  { type: SymbolType.NUM, weight: 70 },    
-  { type: SymbolType.WILD, weight: 25 },   
-  { type: SymbolType.COIN, weight: 20 },   
+  // Low Volatility: Frequent but Small
+  // High weights for Low Paying symbols and Wilds (Connections)
+  { type: SymbolType.PLANE, weight: 4 },    // Rare High (Reduced from 5)
+  { type: SymbolType.LOCK, weight: 4 },     // Rare High (Reduced from 5)
+  { type: SymbolType.SHIELD, weight: 70 },  // Moderate (1x) (Increased from 60)
+  { type: SymbolType.BOT, weight: 70 },     // Moderate (1.5x) (Increased from 60)
+  { type: SymbolType.STAR, weight: 40 },    // Moderate (2x) (Reduced from 50)
+  { type: SymbolType.GIFT, weight: 30 },    // Good chance (2.5x) (Reduced from 40)
+  { type: SymbolType.DIAMOND, weight: 15 }, // Good chance (4x) (Reduced from 20)
+  { type: SymbolType.HASH, weight: 70 },    // Moderate (0.7x) (Increased from 60)
+  { type: SymbolType.NUM, weight: 70 },     // Moderate (0.8x) (Increased from 60)
+  { type: SymbolType.WILD, weight: 50 },    // Frequent Wilds (Reduced from 60)
+  { type: SymbolType.COIN, weight: 25 },    // Frequent Bonus (Reduced from 30)
 ];
 
 export const OBEZIANA_WEIGHTS: { type: SymbolType; weight: number }[] = [
-  { type: SymbolType.PLANE, weight: 2 },   // Drastically Reduced (was 15) to make x20 rare
-  // No LOCK (10x) - Max is 6x (PLANE)
-  { type: SymbolType.SHIELD, weight: 80 }, 
-  { type: SymbolType.BOT, weight: 60 },    
-  { type: SymbolType.STAR, weight: 50 },   
-  { type: SymbolType.GIFT, weight: 30 },   
-  { type: SymbolType.DIAMOND, weight: 8 }, // Reduced (was 15)
-  { type: SymbolType.HASH, weight: 130 },  // Increased filler (was 100)
-  { type: SymbolType.NUM, weight: 130 },   // Increased filler (was 100)
+  // Medium Volatility: Bonus Focused
+  // Bonus (Plane) is the main goal
+  { type: SymbolType.PLANE, weight: 4 },    // Achievable Bonus (Reduced from 5)
+  // No LOCK
+  { type: SymbolType.SHIELD, weight: 80 },  // Standard (Increased from 70)
+  { type: SymbolType.BOT, weight: 60 },     // Standard (Increased from 50)
+  { type: SymbolType.STAR, weight: 35 },    // Standard (Reduced from 40)
+  { type: SymbolType.GIFT, weight: 20 },    // Standard (Reduced from 25)
+  { type: SymbolType.DIAMOND, weight: 8 },  // Rare High (Reduced from 10)
+  { type: SymbolType.HASH, weight: 100 },   // Filler (Increased from 90)
+  { type: SymbolType.NUM, weight: 100 },    // Filler (Increased from 90)
   // No WILD, No COIN
 ];
 
