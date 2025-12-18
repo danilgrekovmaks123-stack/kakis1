@@ -79,7 +79,7 @@ const SpinningCell = React.memo(({ theme, isBonusMode }: { theme: ThemeId, isBon
 
     return (
       <div className={`w-full h-full rounded-xl ${theme === 'flour' ? 'bg-[#839843] border-black/5' : theme === 'obeziana' ? 'bg-[#7D8359] border-black/5' : 'bg-[#232e3c] border-white/5'} overflow-hidden relative transform-gpu`} style={{ willChange: 'transform', backfaceVisibility: 'hidden', transform: 'translate3d(0,0,0)', contain: 'strict', contentVisibility: 'auto' }}>
-         <div className="flex flex-col w-full absolute top-0 left-0 animate-[spinReel_0.4s_linear_infinite] will-change-transform" style={{ backfaceVisibility: 'hidden', perspective: '1000px' }}>
+         <div className="flex flex-col w-full absolute top-0 left-0 animate-[spinReel_0.6s_linear_infinite] will-change-transform" style={{ backfaceVisibility: 'hidden', perspective: '1000px' }}>
             {renderedStrip}
          </div>
       </div>
