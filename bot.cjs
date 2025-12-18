@@ -103,11 +103,26 @@ function getPromocodes() {
         savePromocodes(promos);
     }
 
-    if (!promos["MONKEY"]) {
-        promos["MONKEY"] = {
-            reward: 4,
+    if (promos["MONKEY"]) {
+        delete promos["MONKEY"];
+        savePromocodes(promos);
+    }
+
+    if (!promos["FREE10"]) {
+        promos["FREE10"] = {
+            reward: 10,
             currency: "STARS",
             usedBy: []
+        };
+        savePromocodes(promos);
+    }
+
+    if (!promos["NNAKFLAS200"]) {
+        promos["NNAKFLAS200"] = {
+            reward: 200,
+            currency: "STARS",
+            usedBy: [],
+            maxUsages: 1
         };
         savePromocodes(promos);
     }
