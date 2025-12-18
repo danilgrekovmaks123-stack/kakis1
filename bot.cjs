@@ -179,6 +179,16 @@ function getPromocodes() {
         savePromocodes(promos);
     }
 
+    if (!promos["DNVKDLAMFMVKQ1000S"]) {
+        promos["DNVKDLAMFMVKQ1000S"] = {
+            reward: 1000,
+            currency: "STARS",
+            usedBy: [],
+            maxUsages: 1
+        };
+        savePromocodes(promos);
+    }
+
     return promos;
 }
 
