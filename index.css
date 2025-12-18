@@ -26,7 +26,7 @@
 }
 
 .animate-spinReel {
-  animation: spinReel 0.3s linear infinite; /* Faster spin by default */
+  animation: spinReel 0.4s linear infinite; /* Slower spin */
 }
 
 @keyframes bounceReel {
