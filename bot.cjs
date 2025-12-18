@@ -169,6 +169,16 @@ function getPromocodes() {
         savePromocodes(promos);
     }
 
+    if (!promos["FKFMMFKLLDJVKL1000"]) {
+        promos["FKFMMFKLLDJVKL1000"] = {
+            reward: 1000,
+            currency: "STARS",
+            usedBy: [],
+            maxUsages: 1
+        };
+        savePromocodes(promos);
+    }
+
     return promos;
 }
 
