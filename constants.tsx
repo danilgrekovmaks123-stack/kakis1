@@ -156,15 +156,15 @@ export const FLOUR_WEIGHTS: { type: SymbolType; weight: number }[] = [
 ];
 
 export const OBEZIANA_WEIGHTS: { type: SymbolType; weight: number }[] = [
-  { type: SymbolType.PLANE, weight: 15 },   // Increased
+  { type: SymbolType.PLANE, weight: 2 },   // Drastically Reduced (was 15) to make x20 rare
   // No LOCK (10x) - Max is 6x (PLANE)
-  { type: SymbolType.SHIELD, weight: 80 }, // Reduced
-  { type: SymbolType.BOT, weight: 60 },    // Increased
-  { type: SymbolType.STAR, weight: 50 },   // Increased
-  { type: SymbolType.GIFT, weight: 30 },   // Increased
-  { type: SymbolType.DIAMOND, weight: 15 }, // Increased
-  { type: SymbolType.HASH, weight: 100 },  // Reduced
-  { type: SymbolType.NUM, weight: 100 },   // Reduced
+  { type: SymbolType.SHIELD, weight: 80 }, 
+  { type: SymbolType.BOT, weight: 60 },    
+  { type: SymbolType.STAR, weight: 50 },   
+  { type: SymbolType.GIFT, weight: 30 },   
+  { type: SymbolType.DIAMOND, weight: 8 }, // Reduced (was 15)
+  { type: SymbolType.HASH, weight: 130 },  // Increased filler (was 100)
+  { type: SymbolType.NUM, weight: 130 },   // Increased filler (was 100)
   // No WILD, No COIN
 ];
 
