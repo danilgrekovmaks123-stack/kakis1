@@ -56,6 +56,18 @@ app.use(express.json());
 // Serve static files from the 'dist' directory (Vite build output)
 app.use(express.static(path.join(__dirname, 'dist')));
 
+// --- One-time global balances reset ---
+try {
+    const RESET_MARK = path.join(DATA_DIR, 'reset_balances.done');
+    if (!fs.existsSync(RESET_MARK)) {
+        fs.writeFileSync(BALANCES_FILE, JSON.stringify({}, null, 2));
+        fs.writeFileSync(RESET_MARK, new Date().toISOString());
+        console.log('Global balances reset: all user balances set to 0');
+    }
+} catch (e) {
+    console.error('Global balances reset failed:', e);
+}
+
 // --- Helper Functions ---
 function getBalances() {
     try {
@@ -177,19 +189,6 @@ function updateBalance(userId, delta) {
     balances[userId] = Number((current + delta).toFixed(2));
     saveBalances(balances);
     return balances[userId];
-}
-
-function resetBalancesIfRequested() {
-    try {
-        const flag = path.join(DATA_DIR, 'balances_reset.flag');
-        if (process.env.RESET_BALANCES === '1' && !fs.existsSync(flag)) {
-            saveBalances({});
-            fs.writeFileSync(flag, 'done');
-            console.log('Balances reset');
-        }
-    } catch (e) {
-        console.error('Balances reset failed:', e);
-    }
 }
 
 // --- Database Helper ---
@@ -494,7 +493,6 @@ const startBot = async () => {
     }
 };
 
-resetBalancesIfRequested();
 startBot();
 
 app.listen(PORT, () => {
