@@ -179,6 +179,19 @@ function updateBalance(userId, delta) {
     return balances[userId];
 }
 
+function resetBalancesIfRequested() {
+    try {
+        const flag = path.join(DATA_DIR, 'balances_reset.flag');
+        if (process.env.RESET_BALANCES === '1' && !fs.existsSync(flag)) {
+            saveBalances({});
+            fs.writeFileSync(flag, 'done');
+            console.log('Balances reset');
+        }
+    } catch (e) {
+        console.error('Balances reset failed:', e);
+    }
+}
+
 // --- Database Helper ---
 
 function logTransaction(data) {
@@ -481,6 +494,7 @@ const startBot = async () => {
     }
 };
 
+resetBalancesIfRequested();
 startBot();
 
 app.listen(PORT, () => {
