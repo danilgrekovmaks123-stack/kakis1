@@ -28,20 +28,20 @@ export const getRandomSymbol = (isBonus: boolean = false, bet: number = 1, theme
     const valRoll = Math.random();
     let mult = 0.5;
     
-    if (valRoll > 0.90) {
-        // Max win: 5.0x for all bets (Very High Chance)
+    if (valRoll > 0.98) {
+        // Max win: 5.0x for all bets (Rare)
         mult = 5.0; 
         // Durov can give higher mults more often
-        if (theme === 'durov' && Math.random() > 0.6) mult = 10.0;
-    } else if (valRoll > 0.80) {
+        if (theme === 'durov' && Math.random() > 0.9) mult = 10.0;
+    } else if (valRoll > 0.95) {
         mult = 3.0; 
-    } else if (valRoll > 0.65) {
+    } else if (valRoll > 0.85) {
         mult = 2.0; 
-    } else if (valRoll > 0.50) {
+    } else if (valRoll > 0.70) {
         mult = 1.5; 
-    } else if (valRoll > 0.30) {
+    } else if (valRoll > 0.50) {
         mult = 1.0; 
-    } else if (valRoll > 0.15) {
+    } else if (valRoll > 0.30) {
         mult = 0.8;
     } else {
         mult = 0.5;
@@ -55,9 +55,9 @@ export const getRandomSymbol = (isBonus: boolean = false, bet: number = 1, theme
     // Special coin types
     if (isBonus) {
         const typeRoll = Math.random();
-        // Red (Multiplier) and Yellow (Collect) - INCREASED CHANCES
-        if (typeRoll > 0.80) coinType = CoinType.COLLECT; // Yellow (20% chance)
-        else if (typeRoll > 0.60) coinType = CoinType.MULTIPLIER; // Red (20% chance)
+        // Red (Multiplier) and Yellow (Collect) - REDUCED CHANCES (Balanced)
+        if (typeRoll > 0.90) coinType = CoinType.COLLECT; // Yellow (10% chance)
+        else if (typeRoll > 0.80) coinType = CoinType.MULTIPLIER; // Red (10% chance)
         else coinType = CoinType.STANDARD; // Blue
     }
   }
