@@ -108,25 +108,37 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(function SlotCell({ symbol,
 
   // Handle Expansion for Flour Wild
   useEffect(() => {
+    // Only expand if NOT spinning and symbol is WILD and theme is Flour
     if (theme === 'flour' && symbol.type === SymbolType.WILD && !isSpinning) {
-       const timer = setTimeout(() => {
-           setIsExpanded(true);
-       }, 2000); // Expand after 2s animation
-       return () => clearTimeout(timer);
-    } else {
+       // Only expand if there is a win highlight or it is part of a win (highlight passed as prop)
+       // Optimization: Delay expansion slightly to let spin finish visually
+       if (highlight) {
+           const timer = setTimeout(() => {
+               setIsExpanded(true);
+           }, 300); // Wait 300ms after spin stops
+           return () => clearTimeout(timer);
+       }
+    } 
+    
+    // Reset if spinning starts
+    if (isSpinning) {
         setIsExpanded(false);
     }
-  }, [theme, symbol.type, isSpinning]);
+  }, [theme, symbol.type, isSpinning, highlight]);
 
   // Handle Hiding for cell under Wild
   useEffect(() => {
     if (isUnderWild && !isSpinning) {
-      const timer = setTimeout(() => {
-        setIsHidden(true);
-      }, 2000);
-      return () => clearTimeout(timer);
-    } else {
-      setIsHidden(false);
+        // Same logic: hide only when expansion happens
+        // We can sync this with the parent wild's expansion
+        const timer = setTimeout(() => {
+            setIsHidden(true);
+        }, 300);
+        return () => clearTimeout(timer);
+    }
+    
+    if (isSpinning) {
+        setIsHidden(false);
     }
   }, [isUnderWild, isSpinning]);
 
@@ -136,7 +148,12 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(function SlotCell({ symbol,
     return THEME_IMAGES[theme][type] || SYMBOL_CONFIG[type].imageUrl;
   };
 
+  // OPTIMIZATION: Lottie Loading Logic moved to separate effect that ONLY runs if needed
   useEffect(() => {
+      // Skip logic if spinning or wrong type
+      if (isSpinning) return;
+      if (symbol.type !== SymbolType.PLANE && symbol.type !== SymbolType.WILD) return;
+
       let animationPath: string | null = null;
       if (symbol.type === SymbolType.PLANE) {
           animationPath = THEME_IMAGES[theme]['ANIMATION_PLANE'];
@@ -145,55 +162,56 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(function SlotCell({ symbol,
       }
 
       if (animationPath) {
-          const cacheKey = `lottie:${animationPath}`;
+          // Check cache immediately
           if (lottieCache[animationPath]) {
               setLottieData(lottieCache[animationPath]);
               return;
           }
-          try {
-              const cached = typeof window !== 'undefined' ? window.localStorage.getItem(cacheKey) : null;
-              if (cached) {
-                  const data = JSON.parse(cached);
-                  lottieCache[animationPath] = data;
-                  setLottieData(data);
+          
+          // Defer fetch to avoid blocking UI during spin stop
+          const timer = setTimeout(() => {
+               if (lottieCache[animationPath!]) {
+                  setLottieData(lottieCache[animationPath!]);
                   return;
-              }
-          } catch {}
+               }
 
-          if (!pendingRequests[animationPath]) {
-              pendingRequests[animationPath] = fetch(animationPath)
-                  .then(response => response.arrayBuffer())
-                  .then(buffer => {
-                      return new Promise<any>((resolve, reject) => {
-                          const ric = (typeof window !== 'undefined' && (window as any).requestIdleCallback) ? (window as any).requestIdleCallback : (cb: any) => setTimeout(cb, 0);
-                          ric(() => {
-                              try {
-                                  const json = JSON.parse(new TextDecoder().decode(pako.inflate(buffer)));
-                                  lottieCache[animationPath!] = json;
-                                  try { if (typeof window !== 'undefined') window.localStorage.setItem(cacheKey, JSON.stringify(json)); } catch {}
-                                  resolve(json);
-                              } catch (e) {
-                                  reject(e);
-                              } finally {
-                                  delete pendingRequests[animationPath!];
-                              }
+              if (!pendingRequests[animationPath!]) {
+                  pendingRequests[animationPath!] = fetch(animationPath!)
+                      .then(response => response.arrayBuffer())
+                      .then(buffer => {
+                          return new Promise<any>((resolve, reject) => {
+                              // Use setTimeout instead of requestIdleCallback for better compatibility/behavior here
+                              setTimeout(() => {
+                                  try {
+                                      const json = JSON.parse(new TextDecoder().decode(pako.inflate(buffer)));
+                                      lottieCache[animationPath!] = json;
+                                      resolve(json);
+                                  } catch (e) {
+                                      reject(e);
+                                  } finally {
+                                      delete pendingRequests[animationPath!];
+                                  }
+                              }, 0);
                           });
                       });
-                  });
-          }
+              }
 
-          let isMounted = true;
-          pendingRequests[animationPath].then(json => {
-              if (isMounted) startTransition(() => setLottieData(json));
-          }).catch(() => {
-             if (isMounted) startTransition(() => setLottieData(null));
-          });
-          
-          return () => { isMounted = false; };
+              let isMounted = true;
+              pendingRequests[animationPath!].then(json => {
+                  if (isMounted) startTransition(() => setLottieData(json));
+              }).catch(() => {
+                  if (isMounted) startTransition(() => setLottieData(null));
+              });
+              
+              return () => { isMounted = false; };
+          }, 100); // 100ms delay to let React render the static frame first
+
+          return () => clearTimeout(timer);
       } else {
           setLottieData(null);
       }
-  }, [symbol.type, theme]);
+  }, [symbol.type, theme, isSpinning]); // Added isSpinning dependency to reset/pause loading
+
   
   // Spinning State (Real Reel Animation) - Only for non-locked cells
   if (isSpinning && !symbol.isLocked) {
