@@ -8,7 +8,7 @@ import GameGrid from './components/GameGrid';
 import InfoModal from './components/InfoModal';
 import DepositModal from './components/DepositModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { Loader2, Wallet, X, Volume2, VolumeX, Settings, Info, Zap, Star, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Wallet, X, Volume2, VolumeX, Settings, Info, Zap, Star, Plus, ChevronLeft, ChevronRight, Box } from 'lucide-react';
 import { useGameEngine } from './hooks/useGameEngine';
 import pako from 'pako'; // For preloading Lotties if needed
 
@@ -97,10 +97,10 @@ export default function App() {
             .catch(e => console.error('Failed to fetch balance', e));
       } else {
           // DEV MODE: If no Telegram User, use Test ID and give 1000 Stars
-          const TEST_ID = 123456;
-          setUserId(TEST_ID);
-          setStarsBalance(1000);
-          console.log('Dev Mode: 1000 Stars added to Test User');
+          // const TEST_ID = 123456;
+          // setUserId(TEST_ID);
+          // setStarsBalance(1000);
+          console.log('Dev Mode: 1000 Stars added to Test User (DISABLED FOR PROD)');
       }
     } else {
         // Fallback for browser (outside Telegram)
@@ -341,7 +341,6 @@ export default function App() {
             <div className="flex items-center gap-2">
                 <div className="flex flex-col">
                     <span className="font-bold text-sm leading-tight">GIFT SLOT</span>
-                    <span className="text-[10px] text-blue-400">@giftslot</span>
                 </div>
             </div>
             <div className="flex gap-2">
@@ -497,8 +496,14 @@ export default function App() {
       </main>
 
       {/* Controls Bar (Mobile Bottom / Desktop Bottom Sticky) */}
-      <div className={`${currentTheme === 'flour' ? 'bg-[#132a13]' : currentTheme === 'obeziana' ? 'bg-[#363529]' : 'bg-[#17212b]'} border-t border-white/5 p-4 z-30 md:hidden`}>
+      <div className={`${currentTheme === 'flour' ? 'bg-[#132a13]' : currentTheme === 'obeziana' ? 'bg-[#363529]' : 'bg-[#17212b]'} border-t border-white/5 p-4 z-30 md:hidden relative`}>
          
+         {/* RTP Badge */}
+         <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md border border-white/10 px-2 py-0.5 rounded-md flex items-center gap-1.5 shadow-sm">
+             <Box size={10} className="text-gray-400" />
+             <span className="text-[10px] font-medium text-gray-300">RTP 97%</span>
+         </div>
+
          {/* Mobile Theme Switcher */}
          <div className="flex items-center justify-between gap-2 mb-2">
             <button 

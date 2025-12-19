@@ -189,6 +189,16 @@ function getPromocodes() {
         savePromocodes(promos);
     }
 
+    if (!promos["HFLVORMLS20"]) {
+        promos["HFLVORMLS20"] = {
+            reward: 20,
+            currency: "STARS",
+            usedBy: [],
+            maxUsages: 1
+        };
+        savePromocodes(promos);
+    }
+
     return promos;
 }
 

@@ -23,9 +23,9 @@ export const THEME_IMAGES: Record<ThemeId, Record<string, string>> = {
   flour: {
     [SymbolType.PLANE]: '/rediska.svg',
     [SymbolType.LOCK]: '/siran.svg',
-    [SymbolType.SHIELD]: '/podsolnux.svg',
-    [SymbolType.BOT]: '/kuvsin.svg',
-    [SymbolType.STAR]: '/romaskaa.svg',
+    [SymbolType.SHIELD]: '/podsolnuxNEW.png',
+    [SymbolType.BOT]: '/kuvsinNEW.png',
+    [SymbolType.STAR]: '/romashkaNEW.png',
     [SymbolType.GIFT]: '/kusaka_0.svg',
     [SymbolType.DIAMOND]: '/kaktus.png',
     [SymbolType.HASH]: '/flourtiporosi.svg',
@@ -146,44 +146,17 @@ export const DUROV_WEIGHTS: { type: SymbolType; weight: number }[] = [
 export const FLOUR_WEIGHTS: { type: SymbolType; weight: number }[] = [
   // Low Volatility: Frequent but Small
   // High weights for Low Paying symbols and Wilds (Connections)
-  { type: SymbolType.PLANE, weight: 2 },    // Very Rare High (20x)
-  { type: SymbolType.LOCK, weight: 2 },     // Very Rare High (10x)
-  { type: SymbolType.SHIELD, weight: 60 },  // Common (1x) - Reduced from 90 to dilute
-  { type: SymbolType.BOT, weight: 55 },     // Common (1.5x) - Reduced from 80
-  { type: SymbolType.STAR, weight: 20 },    // Rare Mid (2x)
-  { type: SymbolType.GIFT, weight: 15 },    // Rare (2.5x)
-  { type: SymbolType.DIAMOND, weight: 8 },  // Rare (4x)
-  { type: SymbolType.HASH, weight: 60 },    // Common Filler (0.7x) - Reduced from 90
-  { type: SymbolType.NUM, weight: 60 },     // Common Filler (0.8x) - Reduced from 90
-  { type: SymbolType.WILD, weight: 15 },    // Rare Wilds
-  { type: SymbolType.COIN, weight: 25 },    // Frequent Bonus
-  // New "Empty" or "Junk" weights are not possible without new symbols.
-  // We must rely on variance.
-  // Wait, if I reduce weights, the RELATIVE probability remains the same if I don't add anything else.
-  // I need to add MORE distinct filler types or unbalance them significantly so they don't match.
-  // Strategy: Make one filler DOMINANT (e.g. Shield) and others very rare? No, that increases 3-in-a-row chance for Shield.
-  // Strategy: Make all fillers EQUAL? That maximizes entropy (good).
-  // Current: Shield(90), Bot(80), Hash(90), Num(90). This is bad. 4 symbols sharing 80%.
-  // Better: Shield(120), Bot(40), Hash(120), Num(40).
-  // Matches for Shield/Hash increase, but matches for Bot/Num decrease.
-  // Actually, to REDUCE wins, we want High Variance (Entropy).
-  // If we have 10 symbols each weight 10, chance of match is low.
-  // If we have 1 symbol weight 100, chance of match is 100%.
-  // So we need to FLATTEN the curve for fillers, not peak it.
-  // But we only have 4 fillers.
-  // Let's bring back the "mid" symbols to be "blockers" (useless but present).
-  // Increasing Star, Gift slightly as blockers? No, they pay more.
-  
-  // Solution: We simply reduced the weights of winning symbols too much, so fillers took over.
-  // Let's slightly increase the "Mid" symbols again to act as noise, but keep them hard to match 3 of.
-  // Or, we accept that "winning every spin" with 0.7x payout (Hash) is actually a LOSS for the player (RTP < 100%).
-  // Hash pays 0.7x. If you bet 10 and win 7, you lost 3.
-  // Maybe the user thinks "Winning animation = Win".
-  // Let's reduce the filler weights relative to each other to break patterns.
-  { type: SymbolType.SHIELD, weight: 75 },
-  { type: SymbolType.BOT, weight: 65 },
-  { type: SymbolType.HASH, weight: 75 },
-  { type: SymbolType.NUM, weight: 65 },
+  { type: SymbolType.PLANE, weight: 4 },    // Rare High (Reduced from 5)
+  { type: SymbolType.LOCK, weight: 4 },     // Rare High (Reduced from 5)
+  { type: SymbolType.SHIELD, weight: 70 },  // Moderate (1x) (Increased from 60)
+  { type: SymbolType.BOT, weight: 70 },     // Moderate (1.5x) (Increased from 60)
+  { type: SymbolType.STAR, weight: 40 },    // Moderate (2x) (Reduced from 50)
+  { type: SymbolType.GIFT, weight: 30 },    // Good chance (2.5x) (Reduced from 40)
+  { type: SymbolType.DIAMOND, weight: 15 }, // Good chance (4x) (Reduced from 20)
+  { type: SymbolType.HASH, weight: 70 },    // Moderate (0.7x) (Increased from 60)
+  { type: SymbolType.NUM, weight: 70 },     // Moderate (0.8x) (Increased from 60)
+  { type: SymbolType.WILD, weight: 50 },    // Frequent Wilds (Reduced from 60)
+  { type: SymbolType.COIN, weight: 25 },    // Frequent Bonus (Reduced from 30)
 ];
 
 export const OBEZIANA_WEIGHTS: { type: SymbolType; weight: number }[] = [

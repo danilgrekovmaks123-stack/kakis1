@@ -26,104 +26,64 @@ const bonusStrip: SymbolType[] = [
   SymbolType.COIN, SymbolType.EMPTY, SymbolType.COIN, SymbolType.EMPTY, SymbolType.COIN
 ];
 
-// New component to handle spinning logic separately
+// Helper component for spinning state to avoid hook conditional issues
 const SpinningCell = React.memo(({ theme, isBonusMode }: { theme: ThemeId, isBonusMode: boolean }) => {
-    const containerRef = React.useRef<HTMLDivElement>(null);
-    const requestRef = React.useRef<number>();
-    const startTimeRef = React.useRef<number>();
+    // Only use basic symbols for spinning strip to reduce load
+    // Remove heavy Lotties or complex components from here
+    const stripSymbols = React.useMemo(() => {
+        if (isBonusMode) return [SymbolType.COIN, SymbolType.EMPTY, SymbolType.COIN, SymbolType.EMPTY];
+        // Only use static image symbols for the strip
+        return [
+            SymbolType.SHIELD, 
+            SymbolType.BOT, 
+            SymbolType.STAR, 
+            SymbolType.DIAMOND, 
+            SymbolType.HASH, 
+            SymbolType.NUM
+        ];
+    }, [isBonusMode]);
     
-    // Performance: Measure FPS to adapt quality
-    const frameCount = React.useRef(0);
-    const lastTime = React.useRef(performance.now());
-    const [lowQualityMode, setLowQualityMode] = useState(false);
-
-    // Helper to get image URL
+    // Helper to get image URL (duplicated from main component to avoid prop drilling overkill)
     const getImageUrl = (type: SymbolType) => {
         return THEME_IMAGES[theme][type] || SYMBOL_CONFIG[type].imageUrl;
     };
 
-    // Pre-calculate strip symbols
-    const stripSymbols = React.useMemo(() => {
-        if (isBonusMode) return [SymbolType.COIN, SymbolType.EMPTY, SymbolType.COIN, SymbolType.EMPTY];
-        return [SymbolType.SHIELD, SymbolType.HASH, SymbolType.BOT, SymbolType.NUM];
-    }, [isBonusMode]);
-
-    // Setup animation
-    React.useEffect(() => {
-        const animate = (time: number) => {
-            if (!startTimeRef.current) startTimeRef.current = time;
-            
-            // FPS Counter
-            frameCount.current++;
-            if (time - lastTime.current >= 1000) {
-                const fps = frameCount.current;
-                if (fps < 30 && !lowQualityMode) {
-                    setLowQualityMode(true); // Switch to low quality if lagging
-                }
-                frameCount.current = 0;
-                lastTime.current = time;
-            }
-
-            // Physics: Constant speed for now, can add ease-in if needed
-            // CSS animation is actually better for simple loops on mobile compositor
-            // But user requested requestAnimationFrame optimization.
-            // We will simulate the scroll manually.
-            
-            const duration = 600; // ms per loop (Slower, was 400)
-            const progress = (time % duration) / duration;
-            // Move from -50% to 0% (Top to Bottom direction)
-            // -50% shows the bottom set of symbols.
-            // 0% shows the top set.
-            // So we move DOWN.
-            const offset = -50 + (progress * 50);
-
-            if (containerRef.current) {
-                containerRef.current.style.transform = `translate3d(0, ${offset}%, 0)`;
-            }
-
-            requestRef.current = requestAnimationFrame(animate);
-        };
-
-        requestRef.current = requestAnimationFrame(animate);
-        return () => {
-            if (requestRef.current) cancelAnimationFrame(requestRef.current);
-        };
-    }, [lowQualityMode]);
-
+    // Pre-calculate the rendered strip to avoid mapping on every render if props don't change
     const renderedStrip = React.useMemo(() => {
-        // If low quality, use fewer items or even placeholders
-        const items = lowQualityMode ? stripSymbols.slice(0, 2) : [...stripSymbols, ...stripSymbols];
+        // Reduced number of repeats for performance
+        // We only need enough symbols to create the blur effect
+        const simpleStrip = [SymbolType.SHIELD, SymbolType.HASH, SymbolType.BOT, SymbolType.NUM]; 
         
-        return items.map((type, i) => {
+        return [...simpleStrip, ...simpleStrip].map((type, i) => {
             const conf = SYMBOL_CONFIG[type];
-            if (!conf && type !== SymbolType.COIN) return <div key={i} className="h-full w-full aspect-square" />;
+            if (!conf && type !== SymbolType.COIN) {
+                 return <div key={i} className="h-full w-full aspect-square" />;
+            }
             
             const imgUrl = type === SymbolType.COIN ? THEME_IMAGES[theme]['COIN_STRIP'] : getImageUrl(type);
             
             return (
                 <div key={i} className="h-full w-full aspect-square flex items-center justify-center">
-                     {imgUrl && !lowQualityMode ? (
+                     {imgUrl ? (
                          <img 
                             src={imgUrl} 
                             className={`${theme === 'obeziana' ? 'w-[85%] h-[85%]' : 'w-3/5 h-3/5'} object-contain transform scale-y-[1.2]`} 
                             alt="" 
                             decoding="async"
-                            loading="eager" // Force eager load for strip
+                            loading="eager" 
                             style={{ backfaceVisibility: 'hidden' }}
                          />
                      ) : (
-                         <div style={{ color: conf?.color || '#ccc' }} className="scale-75 opacity-50">
-                            {conf?.icon || <div className="w-8 h-8 rounded-full bg-current" />}
-                         </div>
+                         <div style={{ color: conf.color }} className="scale-75">{conf.icon}</div>
                      )}
                 </div>
             );
         });
-    }, [theme, isBonusMode, stripSymbols, lowQualityMode]);
+    }, [theme, isBonusMode]);
 
     return (
-      <div className={`w-full h-full rounded-xl ${theme === 'flour' ? 'bg-[#839843] border-black/5' : theme === 'obeziana' ? 'bg-[#7D8359] border-black/5' : 'bg-[#232e3c] border-white/5'} overflow-hidden relative transform-gpu`} style={{ contain: 'strict', contentVisibility: 'auto' }}>
-         <div ref={containerRef} className="flex flex-col w-full absolute top-0 left-0 will-change-transform" style={{ backfaceVisibility: 'hidden', perspective: '1000px' }}>
+      <div className={`w-full h-full rounded-xl ${theme === 'flour' ? 'bg-[#839843] border-black/5' : theme === 'obeziana' ? 'bg-[#7D8359] border-black/5' : 'bg-[#232e3c] border-white/5'} overflow-hidden relative transform-gpu`} style={{ willChange: 'transform', backfaceVisibility: 'hidden', transform: 'translate3d(0,0,0)', contain: 'strict', contentVisibility: 'auto' }}>
+         <div className="flex flex-col w-full absolute top-0 left-0 animate-[spinReel_0.4s_linear_infinite] will-change-transform" style={{ backfaceVisibility: 'hidden', perspective: '1000px' }}>
             {renderedStrip}
          </div>
       </div>
@@ -368,7 +328,7 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(function SlotCell({ symbol,
           <img 
             src={getImageUrl(symbol.type)} 
             alt={config.label} 
-            className={`${theme === 'obeziana' ? 'w-[95%] h-[95%]' : (theme === 'flour' && [SymbolType.GIFT, SymbolType.DIAMOND, SymbolType.NUM].includes(symbol.type)) ? 'w-[95%] h-[95%]' : 'w-4/5 h-4/5'} object-contain drop-shadow-lg ${highlight ? 'brightness-110' : ''}`}
+            className={`${theme === 'obeziana' ? 'w-[95%] h-[95%]' : (theme === 'flour' && [SymbolType.GIFT, SymbolType.DIAMOND, SymbolType.NUM, SymbolType.STAR, SymbolType.BOT, SymbolType.SHIELD].includes(symbol.type)) ? 'w-[95%] h-[95%]' : 'w-4/5 h-4/5'} object-contain drop-shadow-lg ${highlight ? 'brightness-110' : ''}`}
             decoding="async"
           />
          ) : (
