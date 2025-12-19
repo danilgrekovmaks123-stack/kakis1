@@ -48,34 +48,40 @@ const SpinningCell = React.memo(({ theme, isBonusMode }: { theme: ThemeId, isBon
         return THEME_IMAGES[theme][type] || SYMBOL_CONFIG[type].imageUrl;
     };
 
-    // Pre-calculate the rendered strip to avoid mapping on every render if props don't change
     const renderedStrip = React.useMemo(() => {
-        // Reduced number of repeats for performance
-        // We only need enough symbols to create the blur effect
-        const simpleStrip = [SymbolType.SHIELD, SymbolType.HASH, SymbolType.BOT, SymbolType.NUM]; 
-        
+        const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 480px)').matches;
+        if (theme === 'flour' && isMobile) {
+            return Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-full w-full aspect-square flex items-center justify-center">
+                    <div className="w-3/5 h-3/5 rounded-md bg-[#617524]" />
+                </div>
+            ));
+        }
+        const simpleStrip = [SymbolType.SHIELD, SymbolType.HASH, SymbolType.BOT, SymbolType.NUM];
         return [...simpleStrip, ...simpleStrip].map((type, i) => {
             const conf = SYMBOL_CONFIG[type];
             if (!conf && type !== SymbolType.COIN) {
-                 return <div key={i} className="h-full w-full aspect-square" />;
+                return <div key={i} className="h-full w-full aspect-square" />;
             }
-            
             const imgUrl = type === SymbolType.COIN ? THEME_IMAGES[theme]['COIN_STRIP'] : getImageUrl(type);
-            
             return (
                 <div key={i} className="h-full w-full aspect-square flex items-center justify-center">
-                     {imgUrl ? (
-                         <img 
-                            src={imgUrl} 
-                            className={`${theme === 'obeziana' ? 'w-[85%] h-[85%]' : 'w-3/5 h-3/5'} object-contain transform scale-y-[1.2]`} 
-                            alt="" 
+                    {imgUrl ? (
+                        <img
+                            src={imgUrl}
+                            className={`${theme === 'obeziana' ? 'w-[85%] h-[85%]' : 'w-3/5 h-3/5'} object-contain transform scale-y-[1.2]`}
+                            alt=""
                             decoding="async"
-                            loading="eager" 
-                            style={{ backfaceVisibility: 'hidden' }}
-                         />
-                     ) : (
-                         <div style={{ color: conf.color }} className="scale-75">{conf.icon}</div>
-                     )}
+                            loading="lazy"
+                            width={64}
+                            height={64}
+                            draggable={false}
+                            aria-hidden="true"
+                            style={{ backfaceVisibility: 'hidden', pointerEvents: 'none' }}
+                        />
+                    ) : (
+                        <div style={{ color: conf.color }} className="scale-75">{conf.icon}</div>
+                    )}
                 </div>
             );
         });
