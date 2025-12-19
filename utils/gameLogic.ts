@@ -6,6 +6,26 @@ export const getRandomSymbol = (isBonus: boolean = false, bet: number = 1, theme
   if (theme === 'obeziana') weights = OBEZIANA_WEIGHTS;
   if (isBonus) weights = BONUS_WEIGHTS;
 
+  // CASINO TRICK: High Bet Logic (25+)
+  // If bet is high, drastically reduce chances of High Paying symbols and Bonus Coins
+  if (bet >= 25 && !isBonus) {
+      weights = weights.map(w => {
+          // Reduce High Paying Symbols & Bonus
+          if ([SymbolType.PLANE, SymbolType.LOCK, SymbolType.DIAMOND, SymbolType.GIFT, SymbolType.COIN].includes(w.type)) {
+              return { ...w, weight: Math.max(1, Math.floor(w.weight * 0.4)) }; // Reduce by 60%
+          }
+          // Reduce Wilds
+          if (w.type === SymbolType.WILD) {
+              return { ...w, weight: Math.max(1, Math.floor(w.weight * 0.5)) }; // Reduce by 50%
+          }
+          // Increase Fillers to compensate and ensure dead spins
+          if ([SymbolType.SHIELD, SymbolType.HASH, SymbolType.NUM, SymbolType.BOT].includes(w.type)) {
+              return { ...w, weight: Math.floor(w.weight * 1.3) }; // Increase by 30%
+          }
+          return w;
+      });
+  }
+
   const totalWeight = weights.reduce((acc, item) => acc + item.weight, 0);
   let random = Math.random() * totalWeight;
   
@@ -87,7 +107,20 @@ export const generateGrid = (
     grid[r] = [];
   }
 
-  // Generate column by column to control vertical constraints
+  // Pre-roll a check: Should this spin be a guaranteed loss? (For Flower theme mainly)
+  // If we are in Flower theme, and not in bonus, we might want to force a loss if RNG says so, 
+  // to prevent "accidental" wins from high filler density.
+  // But strictly manipulating RNG like this is "rigged". 
+  // Better to just rely on weights. 
+  // However, the user complains "wins every spin".
+  // Let's implement a "Win Dampener" for Flower theme if needed.
+  // No, let's stick to pure weights first.
+  
+  // Actually, let's just use the weights as defined. 
+  // The issue "winning every spin" is likely due to the sheer volume of filler symbols (80%).
+  // If we want to reduce wins, we need to ensure fillers don't line up.
+  
+  // Generate column by column
   for (let c = 0; c < cols; c++) {
     let hasWildInColumn = false;
 

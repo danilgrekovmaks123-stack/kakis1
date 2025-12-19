@@ -42,9 +42,8 @@ const GameColumn: React.FC<GameColumnProps> = ({
       prevSpinning.current = isSpinning;
   }, [isSpinning]);
 
-  const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 480px)').matches;
   return (
-    <div className={`flex flex-col gap-2 md:gap-3 ${isBouncing && !isMobile ? 'animate-bounceReel' : ''}`}>
+    <div className={`flex flex-col gap-2 md:gap-3 ${isBouncing ? 'animate-bounceReel' : ''}`}>
       {gridColumn.map((cell, rIndex) => {
         const isWinning = winningLines.some(l => l.row === rIndex && l.col === cIndex);
         const isActiveSpecial = activeSpecialCells.some(c => c.r === rIndex && c.c === cIndex);

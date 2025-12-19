@@ -26,17 +26,11 @@
 }
 
 .animate-spinReel {
-  animation: spinReel 0.6s linear infinite; /* Increased duration from 0.3s to 0.6s */
-}
-
-@media (max-width: 480px) {
-  .animate-spinReel {
-    animation-duration: 0.9s;
-  }
+  animation: spinReel 0.6s linear infinite;
 }
 
 @keyframes bounceReel {
-  0% { transform: translateY(0); } /* Bounce down */
+  0% { transform: translateY(0); }
   40% { transform: translateY(20px); } /* Bounce down */
   70% { transform: translateY(-8px); } /* Recoil up */
   100% { transform: translateY(0); }
