@@ -50,8 +50,11 @@ const SpinningCell = React.memo(({ theme, isBonusMode }: { theme: ThemeId, isBon
 
     // Pre-calculate the rendered strip to avoid mapping on every render if props don't change
     const renderedStrip = React.useMemo(() => {
-        // Reduced number of repeats for performance, 2 sets is enough for the blur speed
-        return [...stripSymbols, ...stripSymbols].map((type, i) => {
+        // Reduced number of repeats for performance
+        // We only need enough symbols to create the blur effect
+        const simpleStrip = [SymbolType.SHIELD, SymbolType.HASH, SymbolType.BOT, SymbolType.NUM]; 
+        
+        return [...simpleStrip, ...simpleStrip].map((type, i) => {
             const conf = SYMBOL_CONFIG[type];
             if (!conf && type !== SymbolType.COIN) {
                  return <div key={i} className="h-full w-full aspect-square" />;
@@ -60,7 +63,7 @@ const SpinningCell = React.memo(({ theme, isBonusMode }: { theme: ThemeId, isBon
             const imgUrl = type === SymbolType.COIN ? THEME_IMAGES[theme]['COIN_STRIP'] : getImageUrl(type);
             
             return (
-                <div key={i} className="h-full w-full aspect-square flex items-center justify-center will-change-contents">
+                <div key={i} className="h-full w-full aspect-square flex items-center justify-center">
                      {imgUrl ? (
                          <img 
                             src={imgUrl} 
@@ -68,6 +71,7 @@ const SpinningCell = React.memo(({ theme, isBonusMode }: { theme: ThemeId, isBon
                             alt="" 
                             decoding="async"
                             loading="eager" 
+                            style={{ backfaceVisibility: 'hidden' }}
                          />
                      ) : (
                          <div style={{ color: conf.color }} className="scale-75">{conf.icon}</div>
@@ -75,11 +79,11 @@ const SpinningCell = React.memo(({ theme, isBonusMode }: { theme: ThemeId, isBon
                 </div>
             );
         });
-    }, [theme, isBonusMode, stripSymbols]);
+    }, [theme, isBonusMode]);
 
     return (
       <div className={`w-full h-full rounded-xl ${theme === 'flour' ? 'bg-[#839843] border-black/5' : theme === 'obeziana' ? 'bg-[#7D8359] border-black/5' : 'bg-[#232e3c] border-white/5'} overflow-hidden relative transform-gpu`} style={{ willChange: 'transform', backfaceVisibility: 'hidden', transform: 'translate3d(0,0,0)', contain: 'strict', contentVisibility: 'auto' }}>
-         <div className="flex flex-col w-full absolute top-0 left-0 animate-[spinReel_0.6s_linear_infinite] will-change-transform" style={{ backfaceVisibility: 'hidden', perspective: '1000px' }}>
+         <div className="flex flex-col w-full absolute top-0 left-0 animate-[spinReel_0.4s_linear_infinite] will-change-transform" style={{ backfaceVisibility: 'hidden', perspective: '1000px' }}>
             {renderedStrip}
          </div>
       </div>
@@ -108,37 +112,25 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(function SlotCell({ symbol,
 
   // Handle Expansion for Flour Wild
   useEffect(() => {
-    // Only expand if NOT spinning and symbol is WILD and theme is Flour
     if (theme === 'flour' && symbol.type === SymbolType.WILD && !isSpinning) {
-       // Only expand if there is a win highlight or it is part of a win (highlight passed as prop)
-       // Optimization: Delay expansion slightly to let spin finish visually
-       if (highlight) {
-           const timer = setTimeout(() => {
-               setIsExpanded(true);
-           }, 300); // Wait 300ms after spin stops
-           return () => clearTimeout(timer);
-       }
-    } 
-    
-    // Reset if spinning starts
-    if (isSpinning) {
+       const timer = setTimeout(() => {
+           setIsExpanded(true);
+       }, 2000); // Expand after 2s animation
+       return () => clearTimeout(timer);
+    } else {
         setIsExpanded(false);
     }
-  }, [theme, symbol.type, isSpinning, highlight]);
+  }, [theme, symbol.type, isSpinning]);
 
   // Handle Hiding for cell under Wild
   useEffect(() => {
     if (isUnderWild && !isSpinning) {
-        // Same logic: hide only when expansion happens
-        // We can sync this with the parent wild's expansion
-        const timer = setTimeout(() => {
-            setIsHidden(true);
-        }, 300);
-        return () => clearTimeout(timer);
-    }
-    
-    if (isSpinning) {
-        setIsHidden(false);
+      const timer = setTimeout(() => {
+        setIsHidden(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    } else {
+      setIsHidden(false);
     }
   }, [isUnderWild, isSpinning]);
 
@@ -148,12 +140,7 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(function SlotCell({ symbol,
     return THEME_IMAGES[theme][type] || SYMBOL_CONFIG[type].imageUrl;
   };
 
-  // OPTIMIZATION: Lottie Loading Logic moved to separate effect that ONLY runs if needed
   useEffect(() => {
-      // Skip logic if spinning or wrong type
-      if (isSpinning) return;
-      if (symbol.type !== SymbolType.PLANE && symbol.type !== SymbolType.WILD) return;
-
       let animationPath: string | null = null;
       if (symbol.type === SymbolType.PLANE) {
           animationPath = THEME_IMAGES[theme]['ANIMATION_PLANE'];
@@ -162,56 +149,55 @@ const SlotCell: React.FC<SlotCellProps> = React.memo(function SlotCell({ symbol,
       }
 
       if (animationPath) {
-          // Check cache immediately
+          const cacheKey = `lottie:${animationPath}`;
           if (lottieCache[animationPath]) {
               setLottieData(lottieCache[animationPath]);
               return;
           }
-          
-          // Defer fetch to avoid blocking UI during spin stop
-          const timer = setTimeout(() => {
-               if (lottieCache[animationPath!]) {
-                  setLottieData(lottieCache[animationPath!]);
+          try {
+              const cached = typeof window !== 'undefined' ? window.localStorage.getItem(cacheKey) : null;
+              if (cached) {
+                  const data = JSON.parse(cached);
+                  lottieCache[animationPath] = data;
+                  setLottieData(data);
                   return;
-               }
+              }
+          } catch {}
 
-              if (!pendingRequests[animationPath!]) {
-                  pendingRequests[animationPath!] = fetch(animationPath!)
-                      .then(response => response.arrayBuffer())
-                      .then(buffer => {
-                          return new Promise<any>((resolve, reject) => {
-                              // Use setTimeout instead of requestIdleCallback for better compatibility/behavior here
-                              setTimeout(() => {
-                                  try {
-                                      const json = JSON.parse(new TextDecoder().decode(pako.inflate(buffer)));
-                                      lottieCache[animationPath!] = json;
-                                      resolve(json);
-                                  } catch (e) {
-                                      reject(e);
-                                  } finally {
-                                      delete pendingRequests[animationPath!];
-                                  }
-                              }, 0);
+          if (!pendingRequests[animationPath]) {
+              pendingRequests[animationPath] = fetch(animationPath)
+                  .then(response => response.arrayBuffer())
+                  .then(buffer => {
+                      return new Promise<any>((resolve, reject) => {
+                          const ric = (typeof window !== 'undefined' && (window as any).requestIdleCallback) ? (window as any).requestIdleCallback : (cb: any) => setTimeout(cb, 0);
+                          ric(() => {
+                              try {
+                                  const json = JSON.parse(new TextDecoder().decode(pako.inflate(buffer)));
+                                  lottieCache[animationPath!] = json;
+                                  try { if (typeof window !== 'undefined') window.localStorage.setItem(cacheKey, JSON.stringify(json)); } catch {}
+                                  resolve(json);
+                              } catch (e) {
+                                  reject(e);
+                              } finally {
+                                  delete pendingRequests[animationPath!];
+                              }
                           });
                       });
-              }
+                  });
+          }
 
-              let isMounted = true;
-              pendingRequests[animationPath!].then(json => {
-                  if (isMounted) startTransition(() => setLottieData(json));
-              }).catch(() => {
-                  if (isMounted) startTransition(() => setLottieData(null));
-              });
-              
-              return () => { isMounted = false; };
-          }, 100); // 100ms delay to let React render the static frame first
-
-          return () => clearTimeout(timer);
+          let isMounted = true;
+          pendingRequests[animationPath].then(json => {
+              if (isMounted) startTransition(() => setLottieData(json));
+          }).catch(() => {
+             if (isMounted) startTransition(() => setLottieData(null));
+          });
+          
+          return () => { isMounted = false; };
       } else {
           setLottieData(null);
       }
-  }, [symbol.type, theme, isSpinning]); // Added isSpinning dependency to reset/pause loading
-
+  }, [symbol.type, theme]);
   
   // Spinning State (Real Reel Animation) - Only for non-locked cells
   if (isSpinning && !symbol.isLocked) {
