@@ -146,17 +146,17 @@ export const DUROV_WEIGHTS: { type: SymbolType; weight: number }[] = [
 export const FLOUR_WEIGHTS: { type: SymbolType; weight: number }[] = [
   // Low Volatility: Frequent but Small
   // High weights for Low Paying symbols and Wilds (Connections)
-  { type: SymbolType.PLANE, weight: 4 },    // Rare High (Reduced from 5)
-  { type: SymbolType.LOCK, weight: 4 },     // Rare High (Reduced from 5)
-  { type: SymbolType.SHIELD, weight: 70 },  // Moderate (1x) (Increased from 60)
-  { type: SymbolType.BOT, weight: 70 },     // Moderate (1.5x) (Increased from 60)
-  { type: SymbolType.STAR, weight: 40 },    // Moderate (2x) (Reduced from 50)
-  { type: SymbolType.GIFT, weight: 30 },    // Good chance (2.5x) (Reduced from 40)
-  { type: SymbolType.DIAMOND, weight: 15 }, // Good chance (4x) (Reduced from 20)
-  { type: SymbolType.HASH, weight: 70 },    // Moderate (0.7x) (Increased from 60)
-  { type: SymbolType.NUM, weight: 70 },     // Moderate (0.8x) (Increased from 60)
-  { type: SymbolType.WILD, weight: 50 },    // Frequent Wilds (Reduced from 60)
-  { type: SymbolType.COIN, weight: 25 },    // Frequent Bonus (Reduced from 30)
+  { type: SymbolType.PLANE, weight: 2 },    // Very Rare High (Reduced from 4)
+  { type: SymbolType.LOCK, weight: 2 },     // Very Rare High (Reduced from 4)
+  { type: SymbolType.SHIELD, weight: 90 },  // Common Filler (1x) (Increased from 70)
+  { type: SymbolType.BOT, weight: 90 },     // Common Filler (1.5x) (Increased from 70)
+  { type: SymbolType.STAR, weight: 30 },    // Less Frequent (2x) (Reduced from 40)
+  { type: SymbolType.GIFT, weight: 20 },    // Less Frequent (2.5x) (Reduced from 30)
+  { type: SymbolType.DIAMOND, weight: 8 },  // Rare (4x) (Reduced from 15)
+  { type: SymbolType.HASH, weight: 90 },    // Common Filler (0.7x) (Increased from 70)
+  { type: SymbolType.NUM, weight: 90 },     // Common Filler (0.8x) (Increased from 70)
+  { type: SymbolType.WILD, weight: 25 },    // Less Frequent Wilds (Reduced from 50)
+  { type: SymbolType.COIN, weight: 15 },    // Less Frequent Bonus (Reduced from 25)
 ];
 
 export const OBEZIANA_WEIGHTS: { type: SymbolType; weight: number }[] = [
