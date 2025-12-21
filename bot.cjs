@@ -511,15 +511,18 @@ const startBot = async () => {
             // Use Polling for local development
             console.log('Using Polling...');
             // Clear webhook just in case it was set previously
-            await bot.telegram.deleteWebhook();
-            
-            await bot.launch();
-            console.log('Bot polling started.');
+            try {
+                await bot.telegram.deleteWebhook();
+                await bot.launch();
+                console.log('Bot polling started.');
+            } catch (err) {
+                console.warn('Bot polling failed to start (likely due to invalid token). API will still work.');
+                console.warn(err.message);
+            }
         }
     } catch (e) {
-        console.error('Bot launch failed:', e);
-        fs.writeFileSync('startup_error.log', 'Bot launch failed: ' + e.message + '\n' + e.stack);
-        process.exit(1);
+        console.error('Bot setup failed:', e);
+        // Do not exit, keep server running
     }
 };
 
