@@ -120,9 +120,14 @@ function getPromocodes() {
         savePromocodes(promos);
     }
 
-    if (!promos["FREE10"]) {
-        promos["FREE10"] = {
-            reward: 10,
+    if (promos["FREE10"]) {
+        delete promos["FREE10"];
+        savePromocodes(promos);
+    }
+
+    if (!promos["GAMEUP"]) {
+        promos["GAMEUP"] = {
+            reward: 3,
             currency: "STARS",
             usedBy: []
         };
