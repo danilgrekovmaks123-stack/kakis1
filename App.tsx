@@ -322,43 +322,8 @@ export default function App() {
   }, [currentTheme]);
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row text-white font-sans overflow-hidden relative">
+    <div className="min-h-screen flex flex-col md:flex-row text-white font-sans overflow-hidden">
       
-      {/* New Year Decorations: Snowflakes */}
-      <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden" aria-hidden="true">
-          {[...Array(30)].map((_, i) => (
-              <div 
-                key={i} 
-                className="snowflake" 
-                style={{ 
-                    left: `${Math.random() * 100}%`, 
-                    animationDuration: `${10 + Math.random() * 10}s`, 
-                    animationDelay: `${Math.random() * 5}s`,
-                    fontSize: `${0.8 + Math.random() * 1.2}em`
-                }}
-              >
-                ❄
-              </div>
-          ))}
-      </div>
-
-      {/* New Year Decorations: Garland */}
-      <div className="garland-container fixed top-0 w-full z-[60] pointer-events-none flex justify-center items-start pt-2">
-          <div className="absolute top-[-20px] left-0 w-full h-[40px] border-b-2 border-gray-600 rounded-[50%] z-[-1]" />
-          {[...Array(15)].map((_, i) => (
-               <div 
-                  key={i} 
-                  className="garland-light mx-2 md:mx-6 shadow-lg" 
-                  style={{ 
-                      backgroundColor: ['#ff3333', '#33ff33', '#ffff33', '#3333ff'][i % 4],
-                      color: ['#ff3333', '#33ff33', '#ffff33', '#3333ff'][i % 4],
-                      animationDelay: `${Math.random() * 2}s`,
-                      boxShadow: `0 0 10px ${['#ff3333', '#33ff33', '#ffff33', '#3333ff'][i % 4]}`
-                  }} 
-               />
-          ))}
-      </div>
-
       <InfoModal isOpen={showInfo} onClose={() => setShowInfo(false)} theme={currentTheme} />
       <DepositModal 
         isOpen={showDeposit} 
@@ -375,9 +340,7 @@ export default function App() {
         <div className={`h-14 flex items-center justify-between px-4 border-b border-white/5 ${currentTheme === 'flour' ? 'bg-[#132a13]' : currentTheme === 'obeziana' ? 'bg-[#363529]' : 'bg-[#232e3c]'}`}>
             <div className="flex items-center gap-2">
                 <div className="flex flex-col">
-                    <span className="font-bold text-sm leading-tight text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-green-400">
-                        🎄 GIFT SLOT 🎅
-                    </span>
+                    <span className="font-bold text-sm leading-tight">GIFT SLOT</span>
                 </div>
             </div>
             <div className="flex gap-2">
