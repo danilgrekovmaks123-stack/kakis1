@@ -6,8 +6,8 @@ import SlotCell from './components/SlotCell';
 import BonusOverlay from './components/BonusOverlay';
 import GameGrid from './components/GameGrid';
 import InfoModal from './components/InfoModal';
-import DepositModal from './components/DepositModal';
 import TasksModal from './components/TasksModal';
+import DepositModal from './components/DepositModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Loader2, Wallet, X, Volume2, VolumeX, Settings, Info, Zap, Star, Plus, ChevronLeft, ChevronRight, Box, ClipboardList } from 'lucide-react';
 import { useGameEngine } from './hooks/useGameEngine';
@@ -327,9 +327,9 @@ export default function App() {
     <div className="min-h-screen flex flex-col md:flex-row text-white font-sans overflow-hidden">
       
       <InfoModal isOpen={showInfo} onClose={() => setShowInfo(false)} theme={currentTheme} />
-      <TasksModal isOpen={showTasks} onClose={() => setShowTasks(false)} />
+      <TasksModal isOpen={showTasks} onClose={() => setShowTasks(false)} userId={userId} />
       <DepositModal 
-        isOpen={showDeposit} 
+        isOpen={showDeposit}  
         onClose={() => setShowDeposit(false)} 
         onDeposit={handleDeposit} 
         onWithdraw={handleWithdraw}

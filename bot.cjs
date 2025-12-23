@@ -300,7 +300,50 @@ bot.on('successful_payment', async (ctx) => {
     }
 });
 
-// --- Action Handlers ---
+// --- Inline Query Handler for Invitations ---
+bot.on('inline_query', async (ctx) => {
+    const query = ctx.inlineQuery.query; // e.g. "invite" or empty
+    const userId = ctx.from.id;
+
+    // We can filter by query content if needed, but for now we always return the Invite Card
+    // Construct the referral parameter
+    // The "start" parameter will be: start=ref_12345
+    // The button url: https://t.me/GiftSlotbaseBOT?start=ref_12345
+
+    const refLink = `https://t.me/GiftSlotbaseBOT?start=ref_${userId}`;
+    const thumbUrl = "https://github.com/Durov/files/blob/master/images/telegram-logo.png?raw=true"; // Placeholder or use your own hosted image URL
+    // Better to use one of our images if hosted. For now I will use a generic one or the one from the app if I can guess the URL.
+    // Let's use a standard nice image URL or a placeholder. 
+    // Ideally, this should be an image hosted on your server or public URL.
+    // Since I don't have a guaranteed public URL for 'durovslot.png' yet (unless deployed), I'll use a placeholder or the provided screenshot vibe.
+    // User wants "Как на фото". The photo has a purple/blue background with a frog.
+    // I will use a generic "Gift Slot" banner. 
+    const bannerUrl = "https://raw.githubusercontent.com/telegram-apps/tma-assets/master/banners/stars-banner.png"; // Example banner
+
+    const results = [
+        {
+            type: 'article',
+            id: 'invite_friend',
+            title: '⭐️ Хочешь подарю тебе звезды и подарки?',
+            description: 'Получай их каждые 24 часа в бесплатной рулетке!',
+            thumb_url: bannerUrl,
+            input_message_content: {
+                message_text: "⭐️ Хочешь подарю тебе звезды и подарки?\n\nПолучай их каждые 24 часа в бесплатной рулетке!",
+                parse_mode: 'Markdown'
+            },
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        { text: 'Получить', url: refLink }
+                    ]
+                ]
+            }
+        }
+    ];
+
+    await ctx.answerInlineQuery(results, { cache_time: 0 });
+});
+
 bot.action(/^approve_(\d+)_(\d+)$/, async (ctx) => {
     const userId = parseInt(ctx.match[1]);
     const amount = parseInt(ctx.match[2]);
@@ -540,10 +583,3 @@ app.listen(PORT, () => {
 // Graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
-/ / 
- 
- F o r c e 
- 
- u p d a t e 
- 
- 

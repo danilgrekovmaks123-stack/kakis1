@@ -1,47 +1,83 @@
 import React from 'react';
+import { X, CheckCircle2, UserPlus, Gift } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ClipboardList, CheckCircle2, Circle } from 'lucide-react';
 
 interface TasksModalProps {
   isOpen: boolean;
   onClose: () => void;
+  userId: number | null;
 }
 
-export default function TasksModal({ isOpen, onClose }: TasksModalProps) {
+export default function TasksModal({ isOpen, onClose, userId }: TasksModalProps) {
+  
+  const handleInvite = () => {
+    // Use switchInlineQuery to open the chat selection with the invite card
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg && tg.switchInlineQuery) {
+        tg.switchInlineQuery("invite", ["users", "groups", "channels"]);
+    } else {
+        // Fallback for web/dev
+        const inviteLink = `https://t.me/GiftSlotbaseBOT?start=ref_${userId || 'unknown'}`;
+        const text = "⭐️ Хочешь подарю тебе звезды и подарки? Получай их каждые 24 часа в бесплатной рулетке!";
+        const url = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent(text)}`;
+        window.open(url, '_blank');
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="w-full max-w-md bg-[#17212b] rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex flex-col max-h-[80vh]"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-[#1c1c1c] w-full max-w-md rounded-2xl border border-white/10 overflow-hidden shadow-2xl"
           >
             {/* Header */}
-            <div className="p-4 border-b border-white/5 flex items-center justify-between bg-[#232e3c]">
-              <div className="flex items-center gap-2">
-                <ClipboardList className="text-blue-400" size={20} />
-                <h2 className="font-bold text-lg text-white">Задания</h2>
-              </div>
+            <div className="flex items-center justify-between p-4 border-b border-white/5 bg-[#232e3c]">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <CheckCircle2 className="text-green-500" size={20} />
+                Задания
+              </h2>
               <button 
                 onClick={onClose}
-                className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors"
+                className="p-2 hover:bg-white/10 rounded-full transition-colors"
               >
-                <X size={20} />
+                <X size={20} className="text-gray-400" />
               </button>
             </div>
 
             {/* Content */}
-            <div className="p-6 flex flex-col items-center justify-center text-center gap-4 min-h-[200px]">
-               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-2">
-                  <ClipboardList className="text-gray-500" size={32} />
+            <div className="p-4 flex flex-col gap-3">
+               {/* Task Item: Invite Friend */}
+               <div className="bg-white/5 rounded-xl p-3 flex items-center gap-3 border border-white/5">
+                  <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                      <UserPlus size={24} className="text-blue-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-sm leading-tight text-white">Пригласи друга</h3>
+                      <p className="text-xs text-gray-400 leading-tight mt-0.5">Получи 2 звезды за каждого!</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                      <div className="bg-yellow-500/20 px-2 py-0.5 rounded text-[10px] font-bold text-yellow-400 flex items-center gap-1">
+                          +2 <Gift size={10} />
+                      </div>
+                      <button 
+                        onClick={handleInvite}
+                        className="bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        Пригласить
+                      </button>
+                  </div>
                </div>
-               <h3 className="text-gray-300 font-medium">Список заданий пуст</h3>
-               <p className="text-gray-500 text-sm max-w-[200px]">
-                 Новые задания появятся здесь в ближайшее время.
-               </p>
+               
+               {/* Placeholder for more tasks */}
+               {/* <div className="text-center py-4 text-xs text-gray-500">
+                   Больше заданий скоро...
+               </div> */}
             </div>
+
           </motion.div>
         </div>
       )}
