@@ -349,9 +349,10 @@ export default function App() {
             <div className="flex gap-2">
                 <button 
                   onClick={() => setShowTasks(true)}
-                  className="p-2 hover:bg-white/5 rounded-full"
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors shadow-lg active:scale-95"
                 >
-                    <ClipboardList size={18} className="text-gray-400" />
+                    <ClipboardList size={16} className="text-white" />
+                    <span className="text-xs font-bold uppercase tracking-wide">Задания</span>
                 </button>
                 <button 
                   className="p-2 hover:bg-white/5 rounded-full"
