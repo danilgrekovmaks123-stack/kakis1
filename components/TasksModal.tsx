@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ClipboardList } from 'lucide-react';
+import { X, ClipboardList, Send, Ticket } from 'lucide-react';
 
 interface TasksModalProps {
   isOpen: boolean;
@@ -41,14 +41,32 @@ export default function TasksModal({ isOpen, onClose }: TasksModalProps) {
           </div>
 
           {/* Content */}
-          <div className="p-8 flex flex-col items-center justify-center text-center space-y-4 min-h-[300px]">
-            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center">
-                <ClipboardList size={40} className="text-gray-500 opacity-50" />
+          <div className="p-4 space-y-4">
+            
+            {/* Task Item */}
+            <div className="bg-[#232e3c] rounded-2xl p-4 flex items-center justify-between gap-4 border border-white/5 hover:border-blue-500/30 transition-colors">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center shrink-0">
+                        <Send size={24} className="text-white ml-0.5 mt-0.5" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-white text-sm">Пригласи друга</h3>
+                        <div className="flex items-center gap-1.5 mt-1">
+                            <Ticket size={14} className="text-blue-400" />
+                            <span className="text-xs font-bold text-blue-400">+2 Звезды</span>
+                        </div>
+                    </div>
+                </div>
+                <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors active:scale-95 shadow-lg shadow-blue-500/20">
+                    Начать
+                </button>
             </div>
-            <h3 className="text-lg font-bold text-white">Список заданий пуст</h3>
-            <p className="text-gray-400 text-sm max-w-[250px]">
-                Новые задания появятся здесь совсем скоро. Заглядывайте позже!
+
+            {/* Empty State Hint */}
+            <p className="text-center text-gray-500 text-xs mt-4">
+                Больше заданий скоро...
             </p>
+
           </div>
         </motion.div>
       </motion.div>
