@@ -540,3 +540,10 @@ app.listen(PORT, () => {
 // Graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
+/ / 
+ 
+ F o r c e 
+ 
+ u p d a t e 
+ 
+ 

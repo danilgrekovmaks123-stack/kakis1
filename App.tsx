@@ -7,9 +7,8 @@ import BonusOverlay from './components/BonusOverlay';
 import GameGrid from './components/GameGrid';
 import InfoModal from './components/InfoModal';
 import DepositModal from './components/DepositModal';
-import TasksModal from './components/TasksModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { Loader2, Wallet, X, Volume2, VolumeX, Settings, Info, Zap, Star, Plus, ChevronLeft, ChevronRight, Box, ClipboardList } from 'lucide-react';
+import { Loader2, Wallet, X, Volume2, VolumeX, Settings, Info, Zap, Star, Plus, ChevronLeft, ChevronRight, Box } from 'lucide-react';
 import { useGameEngine } from './hooks/useGameEngine';
 import pako from 'pako'; // For preloading Lotties if needed
 
@@ -327,9 +326,8 @@ export default function App() {
     <div className="min-h-screen flex flex-col md:flex-row text-white font-sans overflow-hidden">
       
       <InfoModal isOpen={showInfo} onClose={() => setShowInfo(false)} theme={currentTheme} />
-      <TasksModal isOpen={showTasks} onClose={() => setShowTasks(false)} />
       <DepositModal 
-        isOpen={showDeposit}  
+        isOpen={showDeposit} 
         onClose={() => setShowDeposit(false)} 
         onDeposit={handleDeposit} 
         onWithdraw={handleWithdraw}
@@ -347,13 +345,6 @@ export default function App() {
                 </div>
             </div>
             <div className="flex gap-2">
-                <button 
-                  onClick={() => setShowTasks(true)}
-                  className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors shadow-lg active:scale-95"
-                >
-                    <ClipboardList size={16} className="text-white" />
-                    <span className="text-xs font-bold uppercase tracking-wide">Задания</span>
-                </button>
                 <button 
                   className="p-2 hover:bg-white/5 rounded-full"
                   onClick={() => setIsMuted(!isMuted)}
