@@ -157,6 +157,7 @@ export default function App() {
 
   const [bet, setBet] = useState(BET_VALUES[0]);
   const [showInfo, setShowInfo] = useState(false);
+  const [showTasks, setShowTasks] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
 
   const handleDeposit = async (amount: number, currencyType: 'TON' | 'STARS') => {
@@ -326,6 +327,7 @@ export default function App() {
     <div className="min-h-screen flex flex-col md:flex-row text-white font-sans overflow-hidden">
       
       <InfoModal isOpen={showInfo} onClose={() => setShowInfo(false)} theme={currentTheme} />
+      <TasksModal isOpen={showTasks} onClose={() => setShowTasks(false)} />
       <DepositModal 
         isOpen={showDeposit} 
         onClose={() => setShowDeposit(false)} 
@@ -345,6 +347,12 @@ export default function App() {
                 </div>
             </div>
             <div className="flex gap-2">
+                <button 
+                  onClick={() => setShowTasks(true)}
+                  className="p-2 hover:bg-white/5 rounded-full"
+                >
+                    <ClipboardList size={18} className="text-gray-400" />
+                </button>
                 <button 
                   className="p-2 hover:bg-white/5 rounded-full"
                   onClick={() => setIsMuted(!isMuted)}
