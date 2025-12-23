@@ -7,8 +7,9 @@ import BonusOverlay from './components/BonusOverlay';
 import GameGrid from './components/GameGrid';
 import InfoModal from './components/InfoModal';
 import DepositModal from './components/DepositModal';
+import TasksModal from './components/TasksModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { Loader2, Wallet, X, Volume2, VolumeX, Settings, Info, Zap, Star, Plus, ChevronLeft, ChevronRight, Box } from 'lucide-react';
+import { Loader2, Wallet, X, Volume2, VolumeX, Settings, Info, Zap, Star, Plus, ChevronLeft, ChevronRight, Box, ClipboardList } from 'lucide-react';
 import { useGameEngine } from './hooks/useGameEngine';
 import pako from 'pako'; // For preloading Lotties if needed
 
@@ -156,7 +157,6 @@ export default function App() {
 
   const [bet, setBet] = useState(BET_VALUES[0]);
   const [showInfo, setShowInfo] = useState(false);
-  const [showTasks, setShowTasks] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
 
   const handleDeposit = async (amount: number, currencyType: 'TON' | 'STARS') => {
