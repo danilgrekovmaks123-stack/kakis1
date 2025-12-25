@@ -524,9 +524,10 @@ app.post('/api/referral/prepare', async (req, res) => {
 
     const refParam = `ref${userId}`;
     const botUserName = (await bot.telegram.getMe()).username;
-    // Use a reliable image URL (e.g. from your repo or a stable host)
-    const photoUrl = 'https://raw.githubusercontent.com/danilgrekovmaks123-stack/kakis1/main/public/vite.svg'; 
-    // TODO: Replace with your actual banner URL
+    // Use a generated banner that matches the user's request "ЗАБЕРИ ЗВЕЗДЫ"
+    // Since we cannot access the user-attachment URL directly from the server reliably, we use a placeholder.
+    // User can replace 'referral_banner.png' in public folder later.
+    const photoUrl = 'https://placehold.co/600x350/232e3c/ffffff.png?text=%D0%97%D0%90%D0%91%D0%95%D0%A0%D0%98+%D0%97%D0%92%D0%95%D0%97%D0%94%D0%AB&font=roboto'; 
 
     try {
         console.log(`Preparing message for user ${userId}...`);
@@ -538,7 +539,7 @@ app.post('/api/referral/prepare', async (req, res) => {
             photo_url: photoUrl,
             thumb_url: photoUrl,
             title: 'Подарить Звезды ⭐️',
-            caption: '⭐️ Хочешь подарю тебе звезды и подарки?\n\nПолучай их каждые 24 часа в бесплатной рулетке!',
+            caption: '⭐️ Забирай бесплатные звёзды со мной в GiftSlot.\n\nНачни уже зарабатывать 👇',
             reply_markup: {
                 inline_keyboard: [[
                     { text: 'Получить 🎁', url: `https://t.me/${botUserName}?start=${refParam}` }
