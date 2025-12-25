@@ -304,34 +304,32 @@ bot.on('successful_payment', async (ctx) => {
 
 // Inline Query Handler for Referral Sharing
 bot.on('inline_query', async (ctx) => {
-    try {
-        const query = ctx.inlineQuery.query;
-        console.log(`Received inline query from ${ctx.from.id}: "${query}"`); // Debug log
+    const query = ctx.inlineQuery.query;
+    const userId = ctx.from.id;
+    // We can use a default bot username if context is missing, but better to get it from me
+    // However, me is only available if bot info is fetched. Telegraf usually does this.
+    const botUsername = ctx.botInfo?.username || 'GIFTslotdropbot'; 
+    const referralLink = `https://t.me/${botUsername}?start=ref${userId}`;
 
-        const userId = ctx.from.id;
-        const botUsername = ctx.botInfo?.username || 'GIFTslotdropbot'; 
-        const referralLink = `https://t.me/${botUsername}?start=ref${userId}`;
-
-        const results = [
-            {
-                type: 'photo',
-                id: `invite_${userId}`, // Unique ID per user query to avoid caching issues
-                photo_url: 'https://img.freepik.com/free-vector/casino-background-with-golden-coins-flying_1017-38378.jpg',
-                thumb_url: 'https://img.freepik.com/free-vector/casino-background-with-golden-coins-flying_1017-38378.jpg',
-                caption: `⭐ *Хочешь подарю тебе звезды и подарки?*\n\nПолучай их каждые 24 часа в бесплатной рулетке!`,
-                parse_mode: 'Markdown',
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: 'Получить 🎁', url: referralLink }]
-                    ]
-                }
+    const results = [
+        {
+            type: 'photo',
+            id: 'invite_friend',
+            title: '🎁 Подарок',
+            description: 'Отправить подарок другу',
+            photo_url: 'https://img.freepik.com/free-vector/casino-background-with-golden-coins_1017-30372.jpg', // Nice casino background
+            thumb_url: 'https://img.freepik.com/free-vector/casino-background-with-golden-coins_1017-30372.jpg',
+            caption: `⭐ *Хочешь подарю тебе звезды и подарки?*\n\nПолучай их каждые 24 часа в бесплатной рулетке!`,
+            parse_mode: 'Markdown',
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: 'Получить 🎁', url: referralLink }]
+                ]
             }
-        ];
+        }
+    ];
 
-        await ctx.answerInlineQuery(results, { cache_time: 0, is_personal: true });
-    } catch (e) {
-        console.error('Error handling inline query:', e);
-    }
+    await ctx.answerInlineQuery(results, { cache_time: 0 });
 });
 
 bot.action(/^approve_(\d+)_(\d+)$/, async (ctx) => {

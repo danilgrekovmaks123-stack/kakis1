@@ -18,7 +18,7 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
         // We use empty string to just trigger the bot's inline mode.
         // But some devices require at least one char.
         // Let's use "invite" as a trigger, though our bot code handles any query.
-        window.Telegram.WebApp.switchInlineQuery("invite", ['users', 'groups', 'channels']);
+        window.Telegram.WebApp.switchInlineQuery("gift", ['users', 'groups', 'channels']);
     } else {
         // Fallback for local dev or browser
         alert("This feature only works inside Telegram!");
