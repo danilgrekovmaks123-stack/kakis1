@@ -301,6 +301,38 @@ bot.on('successful_payment', async (ctx) => {
 });
 
 // --- Action Handlers ---
+
+// Inline Query Handler for Referral Sharing
+bot.on('inline_query', async (ctx) => {
+    const query = ctx.inlineQuery.query;
+    const userId = ctx.from.id;
+    // We can use a default bot username if context is missing, but better to get it from me
+    // However, me is only available if bot info is fetched. Telegraf usually does this.
+    const botUsername = ctx.botInfo?.username || 'GIFTslotdropbot'; 
+    const referralLink = `https://t.me/${botUsername}?start=ref${userId}`;
+
+    const results = [
+        {
+            type: 'article',
+            id: 'invite_friend',
+            title: '🎁 Подарок для тебя!',
+            description: 'Забирай бесплатные звезды каждые 24 часа.',
+            thumb_url: 'https://cdn-icons-png.flaticon.com/512/744/744922.png', // Placeholder gift icon
+            input_message_content: {
+                message_text: `⭐ *Хочешь подарю тебе звезды и подарки?*\n\nПолучай их каждые 24 часа в бесплатной рулетке!`,
+                parse_mode: 'Markdown'
+            },
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: 'Получить 🎁', url: referralLink }]
+                ]
+            }
+        }
+    ];
+
+    await ctx.answerInlineQuery(results, { cache_time: 0 });
+});
+
 bot.action(/^approve_(\d+)_(\d+)$/, async (ctx) => {
     const userId = parseInt(ctx.match[1]);
     const amount = parseInt(ctx.match[2]);
