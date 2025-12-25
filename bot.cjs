@@ -41,6 +41,7 @@ if (!CASINO_URL) console.warn('WebApp URL is missing (CASINO_URL)');
 const app = express();
 const bot = new Telegraf(token);
 const PORT = process.env.PORT || 3002;
+const USE_WEBHOOK = process.env.USE_WEBHOOK === 'true';
 
 // Ensure data directory exists for persistent storage
 const DATA_DIR = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'data');
@@ -272,6 +273,10 @@ function logTransaction(data) {
 }
 
 // --- Bot Logic ---
+bot.catch((err, ctx) => {
+    console.error('Bot error', err);
+    try { ctx.answerCbQuery('Ошибка, попробуйте позже').catch(() => {}); } catch {}
+});
 bot.start((ctx) => {
     const refPayload = ctx.startPayload;
     const launchUrl = refPayload ? `${CASINO_URL}?ref=${encodeURIComponent(refPayload)}` : CASINO_URL;
@@ -664,8 +669,8 @@ const startBot = async () => {
             console.error('Failed to fetch bot info:', e);
         }
 
-        // Use Webhook if in production and CASINO_URL is available (and valid)
-        if (process.env.NODE_ENV === 'production' && CASINO_URL && CASINO_URL.startsWith('https')) {
+        // Prefer polling to ensure bot always answers. Enable webhook only if explicitly requested.
+        if (USE_WEBHOOK && CASINO_URL && CASINO_URL.startsWith('https')) {
             const webhookPath = `/telegraf/${token}`;
             const webhookUrl = `${CASINO_URL}${webhookPath}`;
             
@@ -680,12 +685,12 @@ const startBot = async () => {
             console.log('Bot webhook configured successfully.');
         } else {
             // Use Polling for local development
-            console.log('Using Polling...');
+            console.log('Using Polling (forced)...');
             // Clear webhook just in case it was set previously
             try {
                 await bot.telegram.deleteWebhook();
                 await bot.launch();
-                console.log('Bot polling started.');
+                console.log('Bot polling started. Bot will answer in chats.');
             } catch (err) {
                 console.warn('Bot polling failed to start (likely due to invalid token). API will still work.');
                 console.warn(err.message);
