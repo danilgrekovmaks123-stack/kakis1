@@ -11,7 +11,7 @@ interface ReferralModalProps {
 export default function ReferralModal({ isOpen, onClose, userId }: ReferralModalProps) {
   if (!isOpen) return null;
 
-  const referralLink = `https://t.me/GiftSlotbaseBOT?start=ref${userId || '123'}`;
+  const referralLink = `https://t.me/GIFTslotdropbot?start=ref${userId || '123'}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralLink);
