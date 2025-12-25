@@ -8,6 +8,7 @@ const { Telegraf } = require('telegraf');
 let token = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '';
 let CASINO_URL = process.env.CASINO_URL || '';
 let ADMIN_ID = '7119839001';
+let BOT_USERNAME = '';
 
 // Skip .env loading in production (Railway sets env vars automatically)
 if ((!token || !CASINO_URL) && process.env.NODE_ENV !== 'production') {
@@ -595,12 +596,25 @@ app.post('/api/referral/prepare', async (req, res) => {
     if (!userId) return res.status(400).json({ error: 'Missing userId' });
 
     const refParam = `ref${userId}`;
-    const botUserName = (await bot.telegram.getMe()).username;
+    
+    // Ensure we have a username
+    let botUserName = BOT_USERNAME;
+    if (!botUserName) {
+        try {
+            botUserName = (await bot.telegram.getMe()).username;
+            BOT_USERNAME = botUserName; // cache it
+        } catch (e) {
+            console.error('Failed to get bot username inside prepare:', e);
+            // Fallback (risky, but better than crash) - try to guess from token or fail
+            return res.status(500).json({ error: 'Bot username not available' });
+        }
+    }
+
     // Use the custom uploaded banner
     const photoUrl = 'https://raw.githubusercontent.com/danilgrekovmaks123-stack/kakis1/main/public/zaberi.jpg'; 
 
     try {
-        console.log(`Preparing message for user ${userId}...`);
+        console.log(`Preparing message for user ${userId} via @${botUserName}...`);
         
         // Ensure result is a valid JSON string of InlineQueryResult
         const resultObject = {
@@ -637,6 +651,15 @@ app.post('/api/referral/prepare', async (req, res) => {
 // --- Start Servers ---
 const startBot = async () => {
     try {
+        // Fetch Bot Info first to get Username
+        try {
+            const me = await bot.telegram.getMe();
+            BOT_USERNAME = me.username;
+            console.log(`Bot initialized: @${BOT_USERNAME}`);
+        } catch (e) {
+            console.error('Failed to fetch bot info:', e);
+        }
+
         // Use Webhook if in production and CASINO_URL is available (and valid)
         if (process.env.NODE_ENV === 'production' && CASINO_URL && CASINO_URL.startsWith('https')) {
             const webhookPath = `/telegraf/${token}`;
