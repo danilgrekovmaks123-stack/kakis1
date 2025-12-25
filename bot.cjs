@@ -50,6 +50,7 @@ if (!fs.existsSync(DATA_DIR)) {
 const DB_FILE = path.join(DATA_DIR, 'transactions.json');
 const BALANCES_FILE = path.join(DATA_DIR, 'balances.json');
 const PROMOCODES_FILE = path.join(DATA_DIR, 'promocodes.json');
+const REFERRALS_FILE = path.join(DATA_DIR, 'referrals.json');
 
 app.use(cors());
 app.use(express.json());
@@ -213,6 +214,25 @@ function savePromocodes(promos) {
         return true;
     } catch (e) {
         console.error('Error writing promocodes:', e);
+        return false;
+    }
+}
+
+function getReferrals() {
+    try {
+        if (fs.existsSync(REFERRALS_FILE)) {
+            return JSON.parse(fs.readFileSync(REFERRALS_FILE, 'utf8'));
+        }
+    } catch (e) { console.error('Error reading referrals:', e); }
+    return {};
+}
+
+function saveReferrals(refs) {
+    try {
+        fs.writeFileSync(REFERRALS_FILE, JSON.stringify(refs, null, 2));
+        return true;
+    } catch (e) {
+        console.error('Error writing referrals:', e);
         return false;
     }
 }
@@ -540,7 +560,7 @@ app.post('/api/referral/prepare', async (req, res) => {
             caption: '⭐️ Забирай бесплатные звёзды со мной в GiftSlot.\n\nНачни уже зарабатывать 👇',
             reply_markup: {
                 inline_keyboard: [[
-                    { text: 'Получить 🎁', url: `https://t.me/${botUserName}?start=${refParam}` }
+                    { text: 'Получить 🎁', url: `https://t.me/${botUserName}/app?startapp=${refParam}` }
                 ]]
             }
         };
@@ -559,6 +579,61 @@ app.post('/api/referral/prepare', async (req, res) => {
         console.error('savePreparedInlineMessage failed:', e);
         res.status(500).json({ error: 'Failed to prepare message', details: e.message });
     }
+});
+
+app.post('/api/referral/complete', (req, res) => {
+    const { userId, referrerParam } = req.body;
+    
+    if (!userId || !referrerParam) {
+        return res.status(400).json({ error: 'Missing userId or referrerParam' });
+    }
+
+    // Parse referrer ID from param (e.g. "ref123" -> "123")
+    const match = referrerParam.match(/^ref(\d+)$/);
+    if (!match) {
+        return res.status(400).json({ error: 'Invalid referrer param format' });
+    }
+    
+    const referrerId = parseInt(match[1]);
+    
+    // Prevent self-referral
+    if (referrerId === parseInt(userId)) {
+        return res.status(400).json({ error: 'Self-referral is not allowed' });
+    }
+
+    const referrals = getReferrals();
+    
+    // Check if user has already been referred (by anyone)
+    if (referrals[userId]) {
+        return res.status(400).json({ error: 'User already referred', referredBy: referrals[userId].referrerId });
+    }
+
+    // Register referral
+    referrals[userId] = {
+        referrerId: referrerId,
+        date: new Date().toISOString()
+    };
+    saveReferrals(referrals);
+
+    // Reward Referrer (2 Stars)
+    const newRefBalance = updateBalance(referrerId, 2);
+    
+    // Optional: Reward New User? (Let's give 0 for now as per request "2 stars for inviter")
+    // If you want to give reward to new user:
+    // updateBalance(userId, 5);
+
+    // Notify Referrer
+    bot.telegram.sendMessage(referrerId, `🎉 У вас новый реферал! На ваш баланс начислено 2 Stars.`).catch(() => {});
+
+    logTransaction({
+        id: `referral_${userId}_by_${referrerId}_${Date.now()}`,
+        userId: referrerId, // Transaction is for referrer receiving money
+        amount: 2,
+        type: 'referral_reward',
+        payload: `Referred user ${userId}`
+    });
+
+    res.json({ success: true, message: 'Referral registered' });
 });
 
 // --- Start Servers ---
