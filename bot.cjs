@@ -598,23 +598,19 @@ app.post('/api/referral/prepare', async (req, res) => {
     const refParam = `ref${userId}`;
     
     // Ensure we have a username
-    let botUserName = BOT_USERNAME;
-    if (!botUserName) {
+    let botUserName = BOT_USERNAME || 'GIFTslotdropbot'; // Hardcode fallback to ensure link is never broken
+    if (!BOT_USERNAME) {
         try {
-            botUserName = (await bot.telegram.getMe()).username;
+            const me = await bot.telegram.getMe();
+            botUserName = me.username;
             BOT_USERNAME = botUserName; // cache it
         } catch (e) {
-            console.error('Failed to get bot username inside prepare:', e);
-            // Fallback (risky, but better than crash) - try to guess from token or fail
-            return res.status(500).json({ error: 'Bot username not available' });
+            console.error('Failed to get bot username inside prepare, using fallback:', e);
         }
     }
 
     // Use the custom uploaded banner
     const photoUrl = 'https://raw.githubusercontent.com/danilgrekovmaks123-stack/kakis1/main/public/zaberi.jpg'; 
-    
-    // Ensure we have a valid App URL. Fallback to the one provided by user if env is missing.
-    const appUrl = (CASINO_URL || 'https://kakis1-production.up.railway.app').replace(/\/$/, '');
 
     try {
         console.log(`Preparing message for user ${userId} via @${botUserName}...`);
@@ -629,8 +625,8 @@ app.post('/api/referral/prepare', async (req, res) => {
             caption: '⭐️ Забирай бесплатные звёзды со мной в GiftSlot.\n\nНачни уже зарабатывать 👇',
             reply_markup: {
                 inline_keyboard: [[
-                    // Use web_app button to force open the Mini App directly (bypassing chat deep link issues)
-                    { text: 'Получить 🎁', web_app: { url: `${appUrl}/?ref=${refParam}` } }
+                    // Use ?startapp parameter for Main Mini App (requires Menu Button to be set up)
+                    { text: 'Получить 🎁', url: `https://t.me/${botUserName}?startapp=${refParam}` }
                 ]]
             }
         };
