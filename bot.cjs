@@ -612,6 +612,9 @@ app.post('/api/referral/prepare', async (req, res) => {
 
     // Use the custom uploaded banner
     const photoUrl = 'https://raw.githubusercontent.com/danilgrekovmaks123-stack/kakis1/main/public/zaberi.jpg'; 
+    
+    // Ensure we have a valid App URL. Fallback to the one provided by user if env is missing.
+    const appUrl = (CASINO_URL || 'https://kakis1-production.up.railway.app').replace(/\/$/, '');
 
     try {
         console.log(`Preparing message for user ${userId} via @${botUserName}...`);
@@ -626,8 +629,8 @@ app.post('/api/referral/prepare', async (req, res) => {
             caption: '⭐️ Забирай бесплатные звёзды со мной в GiftSlot.\n\nНачни уже зарабатывать 👇',
             reply_markup: {
                 inline_keyboard: [[
-                    // Use ?startapp parameter for Main Mini App (requires Menu Button to be set up)
-                    { text: 'Получить 🎁', url: `https://t.me/${botUserName}?startapp=${refParam}` }
+                    // Use web_app button to force open the Mini App directly (bypassing chat deep link issues)
+                    { text: 'Получить 🎁', web_app: { url: `${appUrl}/?ref=${refParam}` } }
                 ]]
             }
         };

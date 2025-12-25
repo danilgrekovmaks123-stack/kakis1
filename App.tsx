@@ -92,11 +92,21 @@ export default function App() {
           setUserId(id);
 
           // Check for Referral Start Param
+          let referrerId: string | null = null;
+          
           const startParam = w.Telegram.WebApp.initDataUnsafe.start_param;
           if (startParam && startParam.startsWith('ref')) {
-              // Extract referrer ID
-              const referrerId = startParam.replace('ref', '');
-              if (referrerId && referrerId !== String(id)) {
+              referrerId = startParam.replace('ref', '');
+          } else {
+              // Fallback: Check URL query parameters (for direct web_app button links)
+              const urlParams = new URLSearchParams(window.location.search);
+              const ref = urlParams.get('ref');
+              if (ref) {
+                  referrerId = ref.replace('ref', '');
+              }
+          }
+
+          if (referrerId && referrerId !== String(id)) {
                   console.log('Referral detected:', referrerId);
                   fetch('/api/referral/activate', {
                       method: 'POST',
