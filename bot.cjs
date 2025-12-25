@@ -301,35 +301,26 @@ bot.on('successful_payment', async (ctx) => {
 });
 
 // --- Action Handlers ---
-
-// Inline Query Handler for Referral Sharing
 bot.on('inline_query', async (ctx) => {
-    const query = ctx.inlineQuery.query;
     const userId = ctx.from.id;
-    // We can use a default bot username if context is missing, but better to get it from me
-    // However, me is only available if bot info is fetched. Telegraf usually does this.
-    const botUsername = ctx.botInfo?.username || 'GIFTslotdropbot'; 
-    const referralLink = `https://t.me/${botUsername}?start=ref${userId}`;
+    const refParam = `ref${userId}`;
+    const botUserName = ctx.botInfo.username;
 
-    const results = [
-        {
-            type: 'photo',
-            id: 'invite_friend',
-            title: '🎁 Подарок',
-            description: 'Отправить подарок другу',
-            photo_url: 'https://img.freepik.com/free-vector/casino-background-with-golden-coins_1017-30372.jpg', // Nice casino background
-            thumb_url: 'https://img.freepik.com/free-vector/casino-background-with-golden-coins_1017-30372.jpg',
-            caption: `⭐ *Хочешь подарю тебе звезды и подарки?*\n\nПолучай их каждые 24 часа в бесплатной рулетке!`,
-            parse_mode: 'Markdown',
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: 'Получить', web_app: { url: CASINO_URL } }]
-                ]
-            }
+    await ctx.answerInlineQuery([{
+        type: 'article',
+        id: 'referral',
+        title: 'Подарить Звезды ⭐️',
+        description: 'Пригласи друга и получи бонус!',
+        thumb_url: 'https://img.icons8.com/3d-fluency/94/star.png',
+        input_message_content: {
+            message_text: '🎰 Испытай удачу и получи бесплатные звезды!\n\nЯ уже играю, присоединяйся! 👇'
+        },
+        reply_markup: {
+            inline_keyboard: [[
+                { text: 'Играть и получить бонус 🎁', url: `https://t.me/${botUserName}?start=${refParam}` }
+            ]]
         }
-    ];
-
-    await ctx.answerInlineQuery(results, { cache_time: 0 });
+    }], { cache_time: 0, is_personal: true });
 });
 
 bot.action(/^approve_(\d+)_(\d+)$/, async (ctx) => {

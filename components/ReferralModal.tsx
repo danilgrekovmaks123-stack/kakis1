@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Users, Send, Gift } from 'lucide-react';
+import { X, Users, Gift, Send } from 'lucide-react';
 
 interface ReferralModalProps {
   isOpen: boolean;
@@ -12,18 +12,12 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
   if (!isOpen) return null;
 
   const handleInvite = () => {
-    // Try to open Telegram Inline Query Sharing
+    // @ts-ignore
     if (window.Telegram?.WebApp) {
-        // "share" is the query text. Can be empty string or anything if we handle all queries same way.
-        // We use empty string to just trigger the bot's inline mode.
-        // But some devices require at least one char.
-        // Let's use "invite" as a trigger, though our bot code handles any query.
-        window.Telegram.WebApp.switchInlineQuery("gift", ['users', 'groups', 'channels']);
+        // @ts-ignore
+        window.Telegram.WebApp.switchInlineQuery(`ref${userId || '123'}`, ['users', 'groups', 'channels']);
     } else {
-        // Fallback for local dev or browser
-        alert("This feature only works inside Telegram!");
-        const referralLink = `https://t.me/GIFTslotdropbot?start=ref${userId || '123'}`;
-        navigator.clipboard.writeText(referralLink);
+        alert('Эта функция работает только внутри Telegram');
     }
   };
 
@@ -71,14 +65,19 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
                 </p>
             </div>
 
-            {/* Invite Button */}
-            <button 
-                onClick={handleInvite}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-900/20"
-            >
-                <Send size={20} />
-                Пригласить друга
-            </button>
+            {/* Invite Button Section */}
+            <div className="space-y-2">
+                <button 
+                    onClick={handleInvite}
+                    className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-colors font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+                >
+                    <Send size={20} />
+                    Пригласить друзей
+                </button>
+                <p className="text-xs text-center text-gray-500">
+                    Выберите друга из списка контактов Telegram
+                </p>
+            </div>
 
             {/* Friends List (Empty State for now) */}
             <div className="space-y-3">
