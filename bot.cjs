@@ -524,10 +524,8 @@ app.post('/api/referral/prepare', async (req, res) => {
 
     const refParam = `ref${userId}`;
     const botUserName = (await bot.telegram.getMe()).username;
-    // Use a generated banner that matches the user's request "ЗАБЕРИ ЗВЕЗДЫ"
-    // Since we cannot access the user-attachment URL directly from the server reliably, we use a placeholder.
-    // User can replace 'referral_banner.png' in public folder later.
-    const photoUrl = 'https://placehold.co/600x350/232e3c/ffffff.png?text=%D0%97%D0%90%D0%91%D0%95%D0%A0%D0%98+%D0%97%D0%92%D0%95%D0%97%D0%94%D0%AB&font=roboto'; 
+    // Use the custom uploaded banner
+    const photoUrl = 'https://raw.githubusercontent.com/danilgrekovmaks123-stack/kakis1/main/public/zaberi.png'; 
 
     try {
         console.log(`Preparing message for user ${userId}...`);
