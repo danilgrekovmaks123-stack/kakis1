@@ -93,6 +93,8 @@ export default function App() {
 
           // Check for Referral Start Param
           const startParam = w.Telegram.WebApp.initDataUnsafe.start_param;
+          // Fallback: check URL query if app launched via chat button with ?ref=
+          const urlRefParam = new URLSearchParams(window.location.search).get('ref');
           if (startParam && startParam.startsWith('ref')) {
               // Extract referrer ID
               const referrerId = startParam.replace('ref', '');
@@ -113,6 +115,25 @@ export default function App() {
                       }
                   })
                   .catch(e => console.error('Referral activation failed', e));
+              }
+          } else if (urlRefParam && urlRefParam.startsWith('ref')) {
+              const referrerId = urlRefParam.replace('ref', '');
+              if (referrerId && referrerId !== String(id)) {
+                  console.log('Referral detected via URL:', referrerId);
+                  fetch('/api/referral/activate', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ userId: id, referrerId: referrerId })
+                  })
+                  .then(r => r.json())
+                  .then(d => {
+                      if (d.success) {
+                          console.log('Referral activated successfully (URL)');
+                      } else {
+                          console.log('Referral activation skipped (URL):', d.error);
+                      }
+                  })
+                  .catch(e => console.error('Referral activation failed (URL)', e));
               }
           }
 

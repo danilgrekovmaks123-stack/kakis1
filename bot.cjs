@@ -273,10 +273,12 @@ function logTransaction(data) {
 
 // --- Bot Logic ---
 bot.start((ctx) => {
+    const refPayload = ctx.startPayload;
+    const launchUrl = refPayload ? `${CASINO_URL}?ref=${encodeURIComponent(refPayload)}` : CASINO_URL;
     ctx.reply('Испытай удачу в GiftSlot\n🎁 Вводи промокоды на звезды и зарабатывай звезды каждый день', {
         reply_markup: {
             inline_keyboard: [
-                [{ text: 'Играть в GiftSlot', web_app: { url: CASINO_URL } }],
+                [{ text: 'Играть в GiftSlot', web_app: { url: launchUrl } }],
                 [{ text: 'Наш канал', url: 'https://t.me/giftslotcom' }]
             ]
         }
@@ -598,27 +600,15 @@ app.post('/api/referral/prepare', async (req, res) => {
     const refParam = `ref${userId}`;
     
     // Ensure we have a username
-    let botUserName = BOT_USERNAME;
-    
-    // If we don't have a cached username, try to get it, or use a default one IF KNOWN.
-    // However, for the link to work, it MUST match the actual bot username.
-    // If we can't get it, we should probably fail gracefully or try to fetch it again.
-    if (!botUserName) {
+    let botUserName = BOT_USERNAME || 'GIFTslotdropbot'; // Hardcode fallback to ensure link is never broken
+    if (!BOT_USERNAME) {
         try {
             const me = await bot.telegram.getMe();
             botUserName = me.username;
-            BOT_USERNAME = botUserName; // update cache
+            BOT_USERNAME = botUserName; // cache it
         } catch (e) {
-            console.error('Failed to get bot username inside prepare:', e);
+            console.error('Failed to get bot username inside prepare, using fallback:', e);
         }
-    }
-
-    // FINAL FALLBACK: If we still don't have a username, we can't generate a valid t.me link for THIS bot.
-    // But we can try to use the hardcoded one if you are sure about it.
-    // BETTER APPROACH: Use a generic deep link format if possible, or just fail with a clear error.
-    // Let's use the one you provided earlier as a hard fallback if API fails.
-    if (!botUserName) {
-         botUserName = 'GIFTslotdropbot'; 
     }
 
     // Use the custom uploaded banner
@@ -628,12 +618,6 @@ app.post('/api/referral/prepare', async (req, res) => {
         console.log(`Preparing message for user ${userId} via @${botUserName}...`);
         
         // Ensure result is a valid JSON string of InlineQueryResult
-        // CRITICAL FIX: The error "BOT_INVALID" often comes from the CLIENT when the 'url' param in inline button is malformed or points to a non-existent bot.
-        // It can ALSO happen if the 'startapp' parameter is too long or contains invalid characters.
-        // Let's make sure refParam is clean.
-        
-        const cleanRefParam = refParam.replace(/[^a-zA-Z0-9_]/g, ''); // Ensure only safe chars
-
         const resultObject = {
             type: 'photo',
             id: `ref_${userId}_${Date.now()}`,
@@ -644,7 +628,10 @@ app.post('/api/referral/prepare', async (req, res) => {
             reply_markup: {
                 inline_keyboard: [[
                     // Use ?startapp parameter for Main Mini App (requires Menu Button to be set up)
-                    { text: 'Получить 🎁', url: `https://t.me/${botUserName}?startapp=${cleanRefParam}` }
+                    { text: 'Получить 🎁', url: `https://t.me/${botUserName}?startapp=${refParam}` }
+                ],[
+                    // Fallback for clients where startapp is not supported
+                    { text: 'Открыть через чат', url: `https://t.me/${botUserName}?start=${refParam}` }
                 ]]
             }
         };
