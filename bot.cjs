@@ -525,7 +525,7 @@ app.post('/api/referral/prepare', async (req, res) => {
     const refParam = `ref${userId}`;
     const botUserName = (await bot.telegram.getMe()).username;
     // Use the custom uploaded banner
-    const photoUrl = 'https://raw.githubusercontent.com/danilgrekovmaks123-stack/kakis1/main/public/zaberi.png'; 
+    const photoUrl = 'https://raw.githubusercontent.com/danilgrekovmaks123-stack/kakis1/main/public/zaberi.png?v=2'; 
 
     try {
         console.log(`Preparing message for user ${userId}...`);
