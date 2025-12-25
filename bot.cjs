@@ -36,10 +36,20 @@ if (!token) { console.error('Bot token is missing'); process.exit(1); }
 // Allow CASINO_URL to be empty initially if needed, but better to have it
 if (!CASINO_URL) console.warn('WebApp URL is missing (CASINO_URL)');
 
+let BOT_USERNAME = '';
+
 // --- Setup ---
 const app = express();
 const bot = new Telegraf(token);
 const PORT = process.env.PORT || 3002;
+
+// Fetch Bot Username on Startup
+bot.telegram.getMe().then((botInfo) => {
+    BOT_USERNAME = botInfo.username;
+    console.log(`Bot Username: ${BOT_USERNAME}`);
+}).catch(e => {
+    console.error('Failed to fetch bot info:', e);
+});
 
 // Ensure data directory exists for persistent storage
 const DATA_DIR = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'data');
@@ -543,12 +553,14 @@ app.post('/api/referral/prepare', async (req, res) => {
     if (!userId) return res.status(400).json({ error: 'Missing userId' });
 
     const refParam = `ref${userId}`;
-    const botUserName = (await bot.telegram.getMe()).username;
+    // Use cached username or fallback (e.g. from token or hardcoded if necessary)
+    const botUserName = BOT_USERNAME || 'GIFTslotdropbot'; 
+    
     // Use the custom uploaded banner
     const photoUrl = 'https://raw.githubusercontent.com/danilgrekovmaks123-stack/kakis1/main/public/zaberi.jpg'; 
 
     try {
-        console.log(`Preparing message for user ${userId}...`);
+        console.log(`Preparing message for user ${userId}. Bot: ${botUserName}`);
         
         // Ensure result is a valid JSON string of InlineQueryResult
         const resultObject = {
