@@ -16,7 +16,12 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
     const tg = window.Telegram?.WebApp;
 
     if (tg) {
-        // Check if shareMessage is supported (Bot API 7.10+)
+        // Debug: Check userId
+        if (!userId) {
+            alert('Ошибка: Не удалось определить ваш User ID. Запустите приложение через Telegram.');
+            return;
+        }
+
         // @ts-ignore
         if (tg.shareMessage) {
             try {
@@ -24,29 +29,36 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
                 const response = await fetch(`${API_URL}/api/referral/prepare`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: userId || 123 })
+                    body: JSON.stringify({ userId: userId })
                 });
                 
                 if (response.ok) {
                     const data = await response.json();
                     if (data.prepared_message_id) {
                         // @ts-ignore
-                        tg.shareMessage(data.prepared_message_id);
+                        tg.shareMessage(data.prepared_message_id, (success) => {
+                             if (!success) {
+                                 console.warn('User cancelled sharing');
+                             }
+                        });
                         return;
+                    } else {
+                         alert('Ошибка сервера: не получен ID сообщения');
                     }
                 } else {
-                    console.error('Prepare API failed', await response.text());
+                    const errText = await response.text();
+                    alert(`Ошибка API: ${errText}`);
+                    console.error('Prepare API failed', errText);
                 }
             } catch (e) {
+                alert(`Ошибка сети: ${e}`);
                 console.error('Failed to prepare message', e);
             }
         } else {
-             console.warn('shareMessage not supported, updating Telegram app might help');
+             alert('Ваш Telegram не поддерживает shareMessage. Пожалуйста, обновите приложение.');
         }
-
-        // Fallback to switchInlineQuery
-        // @ts-ignore
-        tg.switchInlineQuery(`ref${userId || '123'}`, ['users', 'groups', 'channels']);
+        
+        // Removed fallback to switchInlineQuery as user disliked it.
     } else {
         alert('Эта функция работает только внутри Telegram');
     }

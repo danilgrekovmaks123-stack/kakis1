@@ -524,25 +524,31 @@ app.post('/api/referral/prepare', async (req, res) => {
 
     const refParam = `ref${userId}`;
     const botUserName = (await bot.telegram.getMe()).username;
-    const photoUrl = 'https://placehold.co/600x400/232e3c/FFF?text=Gift+Slot+Bonus';
+    // Use a reliable image URL (e.g. from your repo or a stable host)
+    const photoUrl = 'https://raw.githubusercontent.com/danilgrekovmaks123-stack/kakis1/main/public/vite.svg'; 
+    // TODO: Replace with your actual banner URL
 
     try {
         console.log(`Preparing message for user ${userId}...`);
+        
+        // Ensure result is a valid JSON string of InlineQueryResult
+        const resultObject = {
+            type: 'photo',
+            id: `ref_${userId}_${Date.now()}`,
+            photo_url: photoUrl,
+            thumb_url: photoUrl,
+            title: 'Подарить Звезды ⭐️',
+            caption: '⭐️ Хочешь подарю тебе звезды и подарки?\n\nПолучай их каждые 24 часа в бесплатной рулетке!',
+            reply_markup: {
+                inline_keyboard: [[
+                    { text: 'Получить 🎁', url: `https://t.me/${botUserName}?start=${refParam}` }
+                ]]
+            }
+        };
+
         const result = await bot.telegram.callApi('savePreparedInlineMessage', {
-            user_id: userId,
-            result: JSON.stringify({
-                type: 'photo',
-                id: `ref_${userId}_${Date.now()}`,
-                photo_url: photoUrl,
-                thumb_url: photoUrl,
-                title: 'Подарить Звезды ⭐️',
-                caption: '⭐️ Хочешь подарю тебе звезды и подарки?\n\nПолучай их каждые 24 часа в бесплатной рулетке!',
-                reply_markup: {
-                    inline_keyboard: [[
-                        { text: 'Получить 🎁', url: `https://t.me/${botUserName}?start=${refParam}` }
-                    ]]
-                }
-            }),
+            user_id: parseInt(userId), // Ensure it's a number
+            result: JSON.stringify(resultObject),
             allow_bot_pm: true
         });
         
