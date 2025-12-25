@@ -313,15 +313,12 @@ bot.on('inline_query', async (ctx) => {
 
     const results = [
         {
-            type: 'article',
+            type: 'photo',
             id: 'invite_friend',
-            title: '🎁 Подарок для тебя!',
-            description: 'Забирай бесплатные звезды каждые 24 часа.',
-            thumb_url: 'https://cdn-icons-png.flaticon.com/512/744/744922.png', // Placeholder gift icon
-            input_message_content: {
-                message_text: `⭐ *Хочешь подарю тебе звезды и подарки?*\n\nПолучай их каждые 24 часа в бесплатной рулетке!`,
-                parse_mode: 'Markdown'
-            },
+            photo_url: 'https://img.freepik.com/free-vector/casino-background-with-golden-coins-flying_1017-38378.jpg', // Placeholder nice casino/gift image
+            thumb_url: 'https://img.freepik.com/free-vector/casino-background-with-golden-coins-flying_1017-38378.jpg',
+            caption: `⭐ *Хочешь подарю тебе звезды и подарки?*\n\nПолучай их каждые 24 часа в бесплатной рулетке!`,
+            parse_mode: 'Markdown',
             reply_markup: {
                 inline_keyboard: [
                     [{ text: 'Получить 🎁', url: referralLink }]
