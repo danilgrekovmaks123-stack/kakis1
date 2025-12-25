@@ -6,10 +6,10 @@ import SlotCell from './components/SlotCell';
 import BonusOverlay from './components/BonusOverlay';
 import GameGrid from './components/GameGrid';
 import InfoModal from './components/InfoModal';
-import TasksModal from './components/TasksModal';
 import DepositModal from './components/DepositModal';
+import ReferralModal from './components/ReferralModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { Loader2, Wallet, X, Volume2, VolumeX, Settings, Info, Zap, Star, Plus, ChevronLeft, ChevronRight, Box, ClipboardList } from 'lucide-react';
+import { Loader2, Wallet, X, Volume2, VolumeX, Settings, Info, Zap, Star, Plus, ChevronLeft, ChevronRight, Box, Users } from 'lucide-react';
 import { useGameEngine } from './hooks/useGameEngine';
 import pako from 'pako'; // For preloading Lotties if needed
 
@@ -157,8 +157,8 @@ export default function App() {
 
   const [bet, setBet] = useState(BET_VALUES[0]);
   const [showInfo, setShowInfo] = useState(false);
-  const [showTasks, setShowTasks] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
+  const [showReferral, setShowReferral] = useState(false);
 
   const handleDeposit = async (amount: number, currencyType: 'TON' | 'STARS') => {
       if (currencyType === 'TON') {
@@ -327,9 +327,9 @@ export default function App() {
     <div className="min-h-screen flex flex-col md:flex-row text-white font-sans overflow-hidden">
       
       <InfoModal isOpen={showInfo} onClose={() => setShowInfo(false)} theme={currentTheme} />
-      <TasksModal isOpen={showTasks} onClose={() => setShowTasks(false)} userId={userId} />
+      <ReferralModal isOpen={showReferral} onClose={() => setShowReferral(false)} userId={userId} />
       <DepositModal 
-        isOpen={showDeposit}  
+        isOpen={showDeposit} 
         onClose={() => setShowDeposit(false)} 
         onDeposit={handleDeposit} 
         onWithdraw={handleWithdraw}
@@ -348,10 +348,10 @@ export default function App() {
             </div>
             <div className="flex gap-2">
                 <button 
-                  onClick={() => setShowTasks(true)}
+                  onClick={() => setShowReferral(true)}
                   className="p-2 hover:bg-white/5 rounded-full"
                 >
-                    <ClipboardList size={18} className="text-gray-400" />
+                    <Users size={18} className="text-gray-400" />
                 </button>
                 <button 
                   className="p-2 hover:bg-white/5 rounded-full"
