@@ -549,7 +549,9 @@ app.post('/api/referral/prepare', async (req, res) => {
         const result = await bot.telegram.callApi('savePreparedInlineMessage', {
             user_id: parseInt(userId), // Ensure it's a number
             result: JSON.stringify(resultObject),
-            allow_bot_pm: true
+            allow_user_chats: true,
+            allow_group_chats: true,
+            allow_channel_chats: true
         });
         
         console.log('Message prepared:', result);
