@@ -36,20 +36,10 @@ if (!token) { console.error('Bot token is missing'); process.exit(1); }
 // Allow CASINO_URL to be empty initially if needed, but better to have it
 if (!CASINO_URL) console.warn('WebApp URL is missing (CASINO_URL)');
 
-let BOT_USERNAME = '';
-
 // --- Setup ---
 const app = express();
 const bot = new Telegraf(token);
 const PORT = process.env.PORT || 3002;
-
-// Fetch Bot Username on Startup
-bot.telegram.getMe().then((botInfo) => {
-    BOT_USERNAME = botInfo.username;
-    console.log(`Bot Username: ${BOT_USERNAME}`);
-}).catch(e => {
-    console.error('Failed to fetch bot info:', e);
-});
 
 // Ensure data directory exists for persistent storage
 const DATA_DIR = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'data');
@@ -237,9 +227,9 @@ function getReferrals() {
     return {};
 }
 
-function saveReferrals(refs) {
+function saveReferrals(referrals) {
     try {
-        fs.writeFileSync(REFERRALS_FILE, JSON.stringify(refs, null, 2));
+        fs.writeFileSync(REFERRALS_FILE, JSON.stringify(referrals, null, 2));
         return true;
     } catch (e) {
         console.error('Error writing referrals:', e);
@@ -336,19 +326,19 @@ bot.on('inline_query', async (ctx) => {
     const refParam = `ref${userId}`;
     const botUserName = ctx.botInfo.username;
 
-    // Use the custom uploaded banner
-    const photoUrl = 'https://raw.githubusercontent.com/danilgrekovmaks123-stack/kakis1/main/public/zaberi.jpg'; 
+    // URL картинки для превью (замените на свою реальную картинку/баннер)
+    const photoUrl = 'https://placehold.co/600x400/232e3c/FFF?text=Gift+Slot+Bonus'; 
 
     await ctx.answerInlineQuery([{
         type: 'photo',
-        id: `ref_${userId}_${Date.now()}`,
+        id: 'referral_invite',
         photo_url: photoUrl,
         thumb_url: photoUrl,
         title: 'Подарить Звезды ⭐️',
-        caption: '⭐️ Забирай бесплатные звёзды со мной в GiftSlot.\n\nНачни уже зарабатывать 👇',
+        caption: '⭐️ Хочешь подарю тебе звезды и подарки?\n\nПолучай их каждые 24 часа в бесплатной рулетке!',
         reply_markup: {
             inline_keyboard: [[
-                { text: 'Получить 🎁', url: `https://t.me/${botUserName}?startapp=${refParam}` }
+                { text: 'Получить 🎁', url: `https://t.me/${botUserName}?start=${refParam}` }
             ]]
         }
     }], { cache_time: 0, is_personal: true });
@@ -544,8 +534,60 @@ app.post('/api/test/add-balance', (req, res) => {
     res.json({ success: true, newBalance });
 });
 
+app.post('/api/referral/activate', (req, res) => {
+    const { userId, referrerId } = req.body;
+    
+    // Basic validation
+    if (!userId || !referrerId) {
+        return res.status(400).json({ success: false, error: 'Missing params' });
+    }
 
+    // Prevent self-referral
+    if (String(userId) === String(referrerId)) {
+        return res.status(400).json({ success: false, error: 'Self referral' });
+    }
 
+    // Remove 'ref' prefix if present
+    const cleanReferrerId = String(referrerId).replace('ref', '');
+    
+    // Validate referrer ID is a number/valid ID
+    if (!/^\d+$/.test(cleanReferrerId)) {
+        return res.status(400).json({ success: false, error: 'Invalid referrer ID' });
+    }
+
+    const referrals = getReferrals();
+
+    // Check if user is already referred by someone
+    if (referrals[userId]) {
+        return res.status(400).json({ success: false, error: 'Already referred', referrer: referrals[userId] });
+    }
+
+    // Check if referrer exists (optional, but good practice to ensure they are a real user? 
+    // For now we assume valid if ID is valid format, to avoid "User not found" if referrer hasn't played yet)
+    
+    // Record referral
+    referrals[userId] = cleanReferrerId;
+    saveReferrals(referrals);
+
+    // Reward Referrer
+    const rewardAmount = 2; // 2 Stars as requested
+    const newReferrerBalance = updateBalance(cleanReferrerId, rewardAmount);
+
+    // Log transaction for referrer
+    logTransaction({
+        id: `ref_reward_${cleanReferrerId}_${userId}_${Date.now()}`,
+        userId: cleanReferrerId,
+        amount: rewardAmount,
+        type: 'referral_reward',
+        sourceUser: userId
+    });
+
+    // Notify Referrer (if possible)
+    bot.telegram.sendMessage(cleanReferrerId, `🎉 Кто-то перешел по вашей ссылке! Вам начислено ${rewardAmount} звезды.`).catch(() => {});
+
+    console.log(`Referral activated: ${userId} referred by ${cleanReferrerId}`);
+    res.json({ success: true, reward: rewardAmount });
+});
 
 
 app.post('/api/referral/prepare', async (req, res) => {
@@ -553,14 +595,12 @@ app.post('/api/referral/prepare', async (req, res) => {
     if (!userId) return res.status(400).json({ error: 'Missing userId' });
 
     const refParam = `ref${userId}`;
-    // Use cached username or fallback (e.g. from token or hardcoded if necessary)
-    const botUserName = BOT_USERNAME || 'GIFTslotdropbot'; 
-    
+    const botUserName = (await bot.telegram.getMe()).username;
     // Use the custom uploaded banner
     const photoUrl = 'https://raw.githubusercontent.com/danilgrekovmaks123-stack/kakis1/main/public/zaberi.jpg'; 
 
     try {
-        console.log(`Preparing message for user ${userId}. Bot: ${botUserName}`);
+        console.log(`Preparing message for user ${userId}...`);
         
         // Ensure result is a valid JSON string of InlineQueryResult
         const resultObject = {
@@ -572,7 +612,8 @@ app.post('/api/referral/prepare', async (req, res) => {
             caption: '⭐️ Забирай бесплатные звёзды со мной в GiftSlot.\n\nНачни уже зарабатывать 👇',
             reply_markup: {
                 inline_keyboard: [[
-                    { text: 'Получить 🎁', url: `https://t.me/${botUserName}?startapp=${refParam}` }
+                    // Direct Mini App Link to bypass chat
+                    { text: 'Получить 🎁', url: `https://t.me/${botUserName}/app?startapp=${refParam}` }
                 ]]
             }
         };
@@ -586,70 +627,11 @@ app.post('/api/referral/prepare', async (req, res) => {
         });
         
         console.log('Message prepared:', result);
-        res.json({ 
-            prepared_message_id: result.id,
-            debug_bot: botUserName,
-            debug_token_start: token.substring(0, 5)
-        });
+        res.json({ prepared_message_id: result.id });
     } catch (e) {
         console.error('savePreparedInlineMessage failed:', e);
         res.status(500).json({ error: 'Failed to prepare message', details: e.message });
     }
-});
-
-app.post('/api/referral/complete', (req, res) => {
-    const { userId, referrerParam } = req.body;
-    
-    if (!userId || !referrerParam) {
-        return res.status(400).json({ error: 'Missing userId or referrerParam' });
-    }
-
-    // Parse referrer ID from param (e.g. "ref123" -> "123")
-    const match = referrerParam.match(/^ref(\d+)$/);
-    if (!match) {
-        return res.status(400).json({ error: 'Invalid referrer param format' });
-    }
-    
-    const referrerId = parseInt(match[1]);
-    
-    // Prevent self-referral
-    if (referrerId === parseInt(userId)) {
-        return res.status(400).json({ error: 'Self-referral is not allowed' });
-    }
-
-    const referrals = getReferrals();
-    
-    // Check if user has already been referred (by anyone)
-    if (referrals[userId]) {
-        return res.status(400).json({ error: 'User already referred', referredBy: referrals[userId].referrerId });
-    }
-
-    // Register referral
-    referrals[userId] = {
-        referrerId: referrerId,
-        date: new Date().toISOString()
-    };
-    saveReferrals(referrals);
-
-    // Reward Referrer (2 Stars)
-    const newRefBalance = updateBalance(referrerId, 2);
-    
-    // Optional: Reward New User? (Let's give 0 for now as per request "2 stars for inviter")
-    // If you want to give reward to new user:
-    // updateBalance(userId, 5);
-
-    // Notify Referrer
-    bot.telegram.sendMessage(referrerId, `🎉 У вас новый реферал! На ваш баланс начислено 2 Stars.`).catch(() => {});
-
-    logTransaction({
-        id: `referral_${userId}_by_${referrerId}_${Date.now()}`,
-        userId: referrerId, // Transaction is for referrer receiving money
-        amount: 2,
-        type: 'referral_reward',
-        payload: `Referred user ${userId}`
-    });
-
-    res.json({ success: true, message: 'Referral registered' });
 });
 
 // --- Start Servers ---

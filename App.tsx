@@ -88,30 +88,32 @@ export default function App() {
       if (tp.button_color) document.documentElement.style.setProperty('--tg-accent', tp.button_color);
 
       const id = w.Telegram.WebApp.initDataUnsafe?.user?.id;
-      let startParam = w.Telegram.WebApp.initDataUnsafe?.start_param;
-
-      // Fallback: check URL query params for web_app button launch
-      if (!startParam) {
-          const urlParams = new URLSearchParams(window.location.search);
-          startParam = urlParams.get('start_param') || urlParams.get('ref');
-      }
-
       if (id) {
           setUserId(id);
 
-          // Attempt to register referral if start_param exists
+          // Check for Referral Start Param
+          const startParam = w.Telegram.WebApp.initDataUnsafe.start_param;
           if (startParam && startParam.startsWith('ref')) {
-              fetch('/api/referral/complete', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ userId: id, referrerParam: startParam })
-              })
-              .then(r => r.json())
-              .then(d => {
-                  if (d.success) console.log('Referral registered successfully');
-                  else console.log('Referral skipped:', d.error);
-              })
-              .catch(e => console.error('Referral request failed', e));
+              // Extract referrer ID
+              const referrerId = startParam.replace('ref', '');
+              if (referrerId && referrerId !== String(id)) {
+                  console.log('Referral detected:', referrerId);
+                  fetch('/api/referral/activate', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ userId: id, referrerId: referrerId })
+                  })
+                  .then(r => r.json())
+                  .then(d => {
+                      if (d.success) {
+                          console.log('Referral activated successfully');
+                          // Optional: Show a welcome modal or notification
+                      } else {
+                          console.log('Referral activation skipped:', d.error);
+                      }
+                  })
+                  .catch(e => console.error('Referral activation failed', e));
+              }
           }
 
           fetch(`/api/balance/${id}`)

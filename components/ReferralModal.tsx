@@ -11,7 +11,12 @@ interface ReferralModalProps {
 export default function ReferralModal({ isOpen, onClose, userId }: ReferralModalProps) {
   if (!isOpen) return null;
 
-  const handleInvite = () => {
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  const handleInvite = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+
     // @ts-ignore
     const tg = window.Telegram?.WebApp;
 
@@ -19,29 +24,59 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
         // Debug: Check userId
         if (!userId) {
             alert('Ошибка: Не удалось определить ваш User ID. Запустите приложение через Telegram.');
+            setIsLoading(false);
             return;
         }
 
-        // Use switchInlineQuery to let the user choose a chat
-        // This avoids "BOT_INVALID" errors and is the standard way to share content
         // @ts-ignore
-        if (tg.switchInlineQuery) {
-            // We just pass the ref param to trigger the bot's inline handler
-            tg.switchInlineQuery(`invite`, ['users', 'groups', 'channels']);
-            // Note: We use "invite" or just empty string if the bot logic handles any query.
-            // But looking at bot.cjs, it handles any inline query but doesn't check the text.
-            // Let's pass "invite" to be clean.
-            // Wait, bot.cjs logic:
-            // bot.on('inline_query', ...) -> it doesn't filter by text.
-            // So any query works.
+        if (tg.shareMessage) {
+            try {
+                const API_URL = import.meta.env.VITE_API_URL || '';
+                const response = await fetch(`${API_URL}/api/referral/prepare`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: userId })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.prepared_message_id) {
+                        // @ts-ignore
+                        tg.shareMessage(data.prepared_message_id, (success) => {
+                             setIsLoading(false);
+                             if (!success) {
+                                 console.warn('User cancelled sharing');
+                             }
+                        });
+                        // Note: If shareMessage is async or returns immediately, isLoading(false) might need to be handled differently.
+                        // However, standard SDK doesn't always guarantee callback on close. 
+                        // So we set timeout to clear loading state just in case.
+                        setTimeout(() => setIsLoading(false), 2000);
+                        return;
+                    } else {
+                         alert('Ошибка сервера: не получен ID сообщения');
+                    }
+                } else {
+                    const errText = await response.text();
+                    alert(`Ошибка API: ${errText}`);
+                    console.error('Prepare API failed', errText);
+                }
+            } catch (e: any) {
+                // Ignore "WebAppShareMessageOpened" error as it might be a false positive event
+                if (e?.toString().includes('WebAppShareMessageOpened') || e?.message?.includes('WebAppShareMessageOpened')) {
+                    console.log('Share message opened event caught as error', e);
+                } else {
+                    alert(`Ошибка сети: ${e}`);
+                    console.error('Failed to prepare message', e);
+                }
+            }
         } else {
-             // Fallback for very old clients
-             const inviteLink = `https://t.me/share/url?url=${encodeURIComponent(`https://t.me/${import.meta.env.VITE_BOT_USERNAME || 'GIFTslotdropbot'}/app?startapp=ref${userId}`)}&text=${encodeURIComponent('Забирай бесплатные звёзды со мной!')}`;
-             tg.openTelegramLink(inviteLink);
+             alert('Ваш Telegram не поддерживает shareMessage. Пожалуйста, обновите приложение.');
         }
     } else {
         alert('Эта функция работает только внутри Telegram');
     }
+    setIsLoading(false);
   };
 
   return (
@@ -92,10 +127,20 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
             <div className="space-y-2">
                 <button 
                     onClick={handleInvite}
-                    className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-colors font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+                    disabled={isLoading}
+                    className={`w-full py-4 ${isLoading ? 'bg-blue-800' : 'bg-blue-600 hover:bg-blue-500'} text-white rounded-xl transition-colors font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20`}
                 >
-                    <Send size={20} />
-                    Пригласить друзей
+                    {isLoading ? (
+                        <>
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Загрузка...
+                        </>
+                    ) : (
+                        <>
+                            <Send size={20} />
+                            Пригласить друзей
+                        </>
+                    )}
                 </button>
                 <p className="text-xs text-center text-gray-500">
                     Выберите друга из списка контактов Telegram
