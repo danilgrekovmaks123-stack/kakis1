@@ -527,9 +527,10 @@ app.post('/api/referral/prepare', async (req, res) => {
     const photoUrl = 'https://placehold.co/600x400/232e3c/FFF?text=Gift+Slot+Bonus';
 
     try {
+        console.log(`Preparing message for user ${userId}...`);
         const result = await bot.telegram.callApi('savePreparedInlineMessage', {
             user_id: userId,
-            result: {
+            result: JSON.stringify({
                 type: 'photo',
                 id: `ref_${userId}_${Date.now()}`,
                 photo_url: photoUrl,
@@ -541,10 +542,11 @@ app.post('/api/referral/prepare', async (req, res) => {
                         { text: 'Получить 🎁', url: `https://t.me/${botUserName}?start=${refParam}` }
                     ]]
                 }
-            },
+            }),
             allow_bot_pm: true
         });
-
+        
+        console.log('Message prepared:', result);
         res.json({ prepared_message_id: result.id });
     } catch (e) {
         console.error('savePreparedInlineMessage failed:', e);

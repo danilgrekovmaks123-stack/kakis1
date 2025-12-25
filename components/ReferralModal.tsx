@@ -13,31 +13,40 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
 
   const handleInvite = async () => {
     // @ts-ignore
-    if (window.Telegram?.WebApp) {
-        try {
-            // 1. Try to prepare a message (New method: shareMessage)
-            const API_URL = import.meta.env.VITE_API_URL || ''; // Ensure this env var is set or empty for relative path
-            const response = await fetch(`${API_URL}/api/referral/prepare`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: userId || 123 })
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.prepared_message_id) {
-                    // @ts-ignore
-                    window.Telegram.WebApp.shareMessage(data.prepared_message_id);
-                    return;
+    const tg = window.Telegram?.WebApp;
+
+    if (tg) {
+        // Check if shareMessage is supported (Bot API 7.10+)
+        // @ts-ignore
+        if (tg.shareMessage) {
+            try {
+                const API_URL = import.meta.env.VITE_API_URL || '';
+                const response = await fetch(`${API_URL}/api/referral/prepare`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: userId || 123 })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.prepared_message_id) {
+                        // @ts-ignore
+                        tg.shareMessage(data.prepared_message_id);
+                        return;
+                    }
+                } else {
+                    console.error('Prepare API failed', await response.text());
                 }
+            } catch (e) {
+                console.error('Failed to prepare message', e);
             }
-        } catch (e) {
-            console.error('Failed to prepare message, falling back to switchInlineQuery', e);
+        } else {
+             console.warn('shareMessage not supported, updating Telegram app might help');
         }
 
-        // 2. Fallback to switchInlineQuery if prepare fails or not supported
+        // Fallback to switchInlineQuery
         // @ts-ignore
-        window.Telegram.WebApp.switchInlineQuery(`ref${userId || '123'}`, ['users', 'groups', 'channels']);
+        tg.switchInlineQuery(`ref${userId || '123'}`, ['users', 'groups', 'channels']);
     } else {
         alert('Эта функция работает только внутри Telegram');
     }
