@@ -323,7 +323,7 @@ bot.on('inline_query', async (ctx) => {
             parse_mode: 'Markdown',
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: 'Получить 🎁', url: referralLink }]
+                    [{ text: 'Получить', web_app: { url: CASINO_URL } }]
                 ]
             }
         }
