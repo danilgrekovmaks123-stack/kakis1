@@ -586,7 +586,11 @@ app.post('/api/referral/prepare', async (req, res) => {
         });
         
         console.log('Message prepared:', result);
-        res.json({ prepared_message_id: result.id });
+        res.json({ 
+            prepared_message_id: result.id,
+            debug_bot: botUserName,
+            debug_token_start: token.substring(0, 5)
+        });
     } catch (e) {
         console.error('savePreparedInlineMessage failed:', e);
         res.status(500).json({ error: 'Failed to prepare message', details: e.message });

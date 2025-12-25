@@ -41,6 +41,11 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
                 if (response.ok) {
                     const data = await response.json();
                     if (data.prepared_message_id) {
+                        // Debug info
+                        console.log('Prepared Message ID:', data.prepared_message_id);
+                        console.log('Server Bot:', data.debug_bot);
+                        console.log('Server Token Start:', data.debug_token_start);
+
                         // @ts-ignore
                         tg.shareMessage(data.prepared_message_id, (success) => {
                              setIsLoading(false);
