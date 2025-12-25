@@ -11,7 +11,12 @@ interface ReferralModalProps {
 export default function ReferralModal({ isOpen, onClose, userId }: ReferralModalProps) {
   if (!isOpen) return null;
 
+  const [isLoading, setIsLoading] = React.useState(false);
+
   const handleInvite = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+
     // @ts-ignore
     const tg = window.Telegram?.WebApp;
 
@@ -19,6 +24,7 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
         // Debug: Check userId
         if (!userId) {
             alert('Ошибка: Не удалось определить ваш User ID. Запустите приложение через Telegram.');
+            setIsLoading(false);
             return;
         }
 
@@ -37,10 +43,15 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
                     if (data.prepared_message_id) {
                         // @ts-ignore
                         tg.shareMessage(data.prepared_message_id, (success) => {
+                             setIsLoading(false);
                              if (!success) {
                                  console.warn('User cancelled sharing');
                              }
                         });
+                        // Note: If shareMessage is async or returns immediately, isLoading(false) might need to be handled differently.
+                        // However, standard SDK doesn't always guarantee callback on close. 
+                        // So we set timeout to clear loading state just in case.
+                        setTimeout(() => setIsLoading(false), 2000);
                         return;
                     } else {
                          alert('Ошибка сервера: не получен ID сообщения');
@@ -50,18 +61,22 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
                     alert(`Ошибка API: ${errText}`);
                     console.error('Prepare API failed', errText);
                 }
-            } catch (e) {
-                alert(`Ошибка сети: ${e}`);
-                console.error('Failed to prepare message', e);
+            } catch (e: any) {
+                // Ignore "WebAppShareMessageOpened" error as it might be a false positive event
+                if (e?.toString().includes('WebAppShareMessageOpened') || e?.message?.includes('WebAppShareMessageOpened')) {
+                    console.log('Share message opened event caught as error', e);
+                } else {
+                    alert(`Ошибка сети: ${e}`);
+                    console.error('Failed to prepare message', e);
+                }
             }
         } else {
              alert('Ваш Telegram не поддерживает shareMessage. Пожалуйста, обновите приложение.');
         }
-        
-        // Removed fallback to switchInlineQuery as user disliked it.
     } else {
         alert('Эта функция работает только внутри Telegram');
     }
+    setIsLoading(false);
   };
 
   return (
@@ -112,10 +127,20 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
             <div className="space-y-2">
                 <button 
                     onClick={handleInvite}
-                    className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-colors font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+                    disabled={isLoading}
+                    className={`w-full py-4 ${isLoading ? 'bg-blue-800' : 'bg-blue-600 hover:bg-blue-500'} text-white rounded-xl transition-colors font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20`}
                 >
-                    <Send size={20} />
-                    Пригласить друзей
+                    {isLoading ? (
+                        <>
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Загрузка...
+                        </>
+                    ) : (
+                        <>
+                            <Send size={20} />
+                            Пригласить друзей
+                        </>
+                    )}
                 </button>
                 <p className="text-xs text-center text-gray-500">
                     Выберите друга из списка контактов Telegram
