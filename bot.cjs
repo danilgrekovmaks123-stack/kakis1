@@ -560,7 +560,10 @@ app.post('/api/referral/prepare', async (req, res) => {
             caption: '⭐️ Забирай бесплатные звёзды со мной в GiftSlot.\n\nНачни уже зарабатывать 👇',
             reply_markup: {
                 inline_keyboard: [[
-                    { text: 'Получить 🎁', url: `https://t.me/${botUserName}/app?startapp=${refParam}` }
+                    { 
+                        text: 'Получить 🎁', 
+                        web_app: { url: `${CASINO_URL}?start_param=${refParam}` } 
+                    }
                 ]]
             }
         };

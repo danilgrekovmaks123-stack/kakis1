@@ -88,7 +88,13 @@ export default function App() {
       if (tp.button_color) document.documentElement.style.setProperty('--tg-accent', tp.button_color);
 
       const id = w.Telegram.WebApp.initDataUnsafe?.user?.id;
-      const startParam = w.Telegram.WebApp.initDataUnsafe?.start_param;
+      let startParam = w.Telegram.WebApp.initDataUnsafe?.start_param;
+
+      // Fallback: check URL query params for web_app button launch
+      if (!startParam) {
+          const urlParams = new URLSearchParams(window.location.search);
+          startParam = urlParams.get('start_param') || urlParams.get('ref');
+      }
 
       if (id) {
           setUserId(id);
