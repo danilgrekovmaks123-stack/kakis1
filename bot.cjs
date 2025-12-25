@@ -336,19 +336,19 @@ bot.on('inline_query', async (ctx) => {
     const refParam = `ref${userId}`;
     const botUserName = ctx.botInfo.username;
 
-    // URL картинки для превью (замените на свою реальную картинку/баннер)
-    const photoUrl = 'https://placehold.co/600x400/232e3c/FFF?text=Gift+Slot+Bonus'; 
+    // Use the custom uploaded banner
+    const photoUrl = 'https://raw.githubusercontent.com/danilgrekovmaks123-stack/kakis1/main/public/zaberi.jpg'; 
 
     await ctx.answerInlineQuery([{
         type: 'photo',
-        id: 'referral_invite',
+        id: `ref_${userId}_${Date.now()}`,
         photo_url: photoUrl,
         thumb_url: photoUrl,
         title: 'Подарить Звезды ⭐️',
-        caption: '⭐️ Хочешь подарю тебе звезды и подарки?\n\nПолучай их каждые 24 часа в бесплатной рулетке!',
+        caption: '⭐️ Забирай бесплатные звёзды со мной в GiftSlot.\n\nНачни уже зарабатывать 👇',
         reply_markup: {
             inline_keyboard: [[
-                { text: 'Получить 🎁', url: `https://t.me/${botUserName}?start=${refParam}` }
+                { text: 'Получить 🎁', url: `https://t.me/${botUserName}?startapp=${refParam}` }
             ]]
         }
     }], { cache_time: 0, is_personal: true });
