@@ -306,18 +306,19 @@ bot.on('inline_query', async (ctx) => {
     const refParam = `ref${userId}`;
     const botUserName = ctx.botInfo.username;
 
+    // URL картинки для превью (замените на свою реальную картинку/баннер)
+    const photoUrl = 'https://placehold.co/600x400/232e3c/FFF?text=Gift+Slot+Bonus'; 
+
     await ctx.answerInlineQuery([{
-        type: 'article',
-        id: 'referral',
+        type: 'photo',
+        id: 'referral_invite',
+        photo_url: photoUrl,
+        thumb_url: photoUrl,
         title: 'Подарить Звезды ⭐️',
-        description: 'Пригласи друга и получи бонус!',
-        thumb_url: 'https://img.icons8.com/3d-fluency/94/star.png',
-        input_message_content: {
-            message_text: '🎰 Испытай удачу и получи бесплатные звезды!\n\nЯ уже играю, присоединяйся! 👇'
-        },
+        caption: '⭐️ Хочешь подарю тебе звезды и подарки?\n\nПолучай их каждые 24 часа в бесплатной рулетке!',
         reply_markup: {
             inline_keyboard: [[
-                { text: 'Играть и получить бонус 🎁', url: `https://t.me/${botUserName}?start=${refParam}` }
+                { text: 'Получить 🎁', url: `https://t.me/${botUserName}?start=${refParam}` }
             ]]
         }
     }], { cache_time: 0, is_personal: true });
