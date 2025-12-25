@@ -58,7 +58,7 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
                 </div>
                 <h3 className="text-lg font-bold text-white mb-1">Пригласи Друга</h3>
                 <p className="text-sm text-gray-300">
-                    Получи <span className="text-yellow-400 font-bold">500 Stars</span> за каждого приглашенного друга!
+                    Получи <span className="text-yellow-400 font-bold">2 Stars</span> за каждого приглашенного друга!
                 </p>
             </div>
 
