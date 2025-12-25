@@ -518,6 +518,40 @@ app.post('/api/test/add-balance', (req, res) => {
 
 
 
+app.post('/api/referral/prepare', async (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'Missing userId' });
+
+    const refParam = `ref${userId}`;
+    const botUserName = (await bot.telegram.getMe()).username;
+    const photoUrl = 'https://placehold.co/600x400/232e3c/FFF?text=Gift+Slot+Bonus';
+
+    try {
+        const result = await bot.telegram.callApi('savePreparedInlineMessage', {
+            user_id: userId,
+            result: {
+                type: 'photo',
+                id: `ref_${userId}_${Date.now()}`,
+                photo_url: photoUrl,
+                thumb_url: photoUrl,
+                title: 'Подарить Звезды ⭐️',
+                caption: '⭐️ Хочешь подарю тебе звезды и подарки?\n\nПолучай их каждые 24 часа в бесплатной рулетке!',
+                reply_markup: {
+                    inline_keyboard: [[
+                        { text: 'Получить 🎁', url: `https://t.me/${botUserName}?start=${refParam}` }
+                    ]]
+                }
+            },
+            allow_bot_pm: true
+        });
+
+        res.json({ prepared_message_id: result.id });
+    } catch (e) {
+        console.error('savePreparedInlineMessage failed:', e);
+        res.status(500).json({ error: 'Failed to prepare message', details: e.message });
+    }
+});
+
 // --- Start Servers ---
 const startBot = async () => {
     try {

@@ -11,9 +11,31 @@ interface ReferralModalProps {
 export default function ReferralModal({ isOpen, onClose, userId }: ReferralModalProps) {
   if (!isOpen) return null;
 
-  const handleInvite = () => {
+  const handleInvite = async () => {
     // @ts-ignore
     if (window.Telegram?.WebApp) {
+        try {
+            // 1. Try to prepare a message (New method: shareMessage)
+            const API_URL = import.meta.env.VITE_API_URL || ''; // Ensure this env var is set or empty for relative path
+            const response = await fetch(`${API_URL}/api/referral/prepare`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: userId || 123 })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.prepared_message_id) {
+                    // @ts-ignore
+                    window.Telegram.WebApp.shareMessage(data.prepared_message_id);
+                    return;
+                }
+            }
+        } catch (e) {
+            console.error('Failed to prepare message, falling back to switchInlineQuery', e);
+        }
+
+        // 2. Fallback to switchInlineQuery if prepare fails or not supported
         // @ts-ignore
         window.Telegram.WebApp.switchInlineQuery(`ref${userId || '123'}`, ['users', 'groups', 'channels']);
     } else {
