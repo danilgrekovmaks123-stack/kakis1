@@ -21,6 +21,13 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
     const tg = window.Telegram?.WebApp;
 
     if (tg) {
+        // DEBUG: Check for Test ID
+        if (userId === 123456) {
+             alert('Ошибка: Вы в тестовом режиме (ID 123456). Перезапустите приложение в Telegram.');
+             setIsLoading(false);
+             return;
+        }
+
         if (!userId) {
             alert('Ошибка: Не удалось определить ваш User ID.');
             setIsLoading(false);

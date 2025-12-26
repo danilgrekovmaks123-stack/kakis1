@@ -637,6 +637,7 @@ app.post('/api/referral/prepare', async (req, res) => {
         console.log(`Preparing message for user ${userId} via @${botUserName}...`);
         
         // Ensure result is a valid JSON string of InlineQueryResult
+        // Use the fetched botUserName to ensure the link matches the bot
         const resultObject = {
             type: 'photo',
             id: `ref_${userId}_${Date.now()}`,
