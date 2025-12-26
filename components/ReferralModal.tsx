@@ -14,38 +14,28 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
   const [isLoading, setIsLoading] = React.useState(false);
 
   const handleInvite = async () => {
-    if (isLoading) return;
-    setIsLoading(true);
-
     // @ts-ignore
     const tg = window.Telegram?.WebApp;
-
-    if (tg) {
-        // Debug: Check userId
-        if (!userId) {
-            alert('Ошибка: Не удалось определить ваш User ID. Запустите приложение через Telegram.');
-            setIsLoading(false);
-            return;
-        }
-
-        // Use switchInlineQuery - simpler and more reliable than shareMessage/prepare
-        // This opens chat selection and then inserts the inline result
-        try {
-            // We pass an empty string or a specific keyword if needed. 
-            // Our bot handles any inline query by generating a referral link for the user.
-            tg.switchInlineQuery('invite', ['users', 'groups', 'channels']);
-            
-            // Close modal after a short delay (optional, as user goes to chat selection)
-            setTimeout(() => setIsLoading(false), 1000);
-        } catch (e: any) {
-            console.error('switchInlineQuery failed', e);
-            alert(`Не удалось открыть выбор чата: ${e.message || e}`);
-            setIsLoading(false);
-        }
-    } else {
-        alert('Эта функция работает только внутри Telegram');
-        setIsLoading(false);
+    if (!tg) {
+        alert('Запустите приложение через Telegram');
+        return;
     }
+
+    // Direct link sharing - simplest and most reliable method
+    // Requires no backend interaction, no API calls, no BOT_INVALID errors
+    const botUsername = 'GIFTslotdropbot'; // Replace if needed or fetch dynamically if possible
+    const inviteLink = `https://t.me/${botUsername}?startapp=ref${userId}`;
+    const text = `⭐️ Забирай бесплатные звёзды со мной в GiftSlot.\n\nНачни уже зарабатывать 👇\n${inviteLink}`;
+    
+    // Use Telegram's native sharing URL
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent('⭐️ Забирай бесплатные звёзды со мной в GiftSlot')}`;
+    
+    // Open in new window/tab using Telegram WebApp openLink method
+    // This triggers the native sharing sheet or opens a chat selection screen
+    tg.openTelegramLink(shareUrl);
+    
+    // Optional: Close modal after action
+    // onClose();
   };
 
   return (
