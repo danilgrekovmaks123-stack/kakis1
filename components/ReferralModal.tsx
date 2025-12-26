@@ -21,18 +21,16 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
     const tg = window.Telegram?.WebApp;
 
     if (tg) {
-        // Debug: Check userId
         if (!userId) {
-            alert('Ошибка: Не удалось определить ваш User ID. Запустите приложение через Telegram.');
+            alert('Ошибка: Не удалось определить ваш User ID.');
             setIsLoading(false);
             return;
         }
 
-        // Use shareMessage (prepared inline message) to get the fancy popup
+        // Try the "Fancy" Popup (Prepared Message)
         // @ts-ignore
         if (tg.shareMessage) {
             try {
-                // Use relative URL to ensure we hit our own backend
                 const response = await fetch(`/api/referral/prepare`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -46,37 +44,29 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
                         tg.shareMessage(data.prepared_message_id, (success) => {
                              setIsLoading(false);
                              if (!success) {
-                                 // User cancelled or failed
-                                 console.warn('User cancelled sharing');
+                                 // If user cancelled, do nothing.
+                                 // If BOT_INVALID happens, it's a client-side toast, we can't catch it here easily.
                              }
                         });
                         // Safety timeout
                         setTimeout(() => setIsLoading(false), 3000);
                         return;
                     } else {
-                         console.error('No prepared_message_id received', data);
-                         alert('Ошибка сервера: не получен ID сообщения');
+                         console.error('No prepared_message_id', data);
+                         // Fallback to switchInlineQuery if prepare fails
+                         tg.switchInlineQuery('invite', ['users', 'groups']);
                     }
                 } else {
-                    const errText = await response.text();
-                    console.error('Prepare API error:', errText);
-                    alert(`Ошибка API: ${errText}`);
+                    console.error('Prepare API Error');
+                    tg.switchInlineQuery('invite', ['users', 'groups']);
                 }
-            } catch (e: any) {
-                // Ignore "WebAppShareMessageOpened" as it is not a real error
-                if (e?.toString().includes('WebAppShareMessageOpened') || e?.message?.includes('WebAppShareMessageOpened')) {
-                    console.log('Share message opened event caught');
-                } else {
-                    console.error('Network error during prepare:', e);
-                    alert(`Ошибка сети: ${e.message || e}`);
-                }
+            } catch (e) {
+                console.error('Share error', e);
+                tg.switchInlineQuery('invite', ['users', 'groups']);
             }
         } else {
-             // Fallback if shareMessage is not supported (e.g. old clients)
-             const botUsername = 'GIFTslotdropbot';
-             const inviteLink = `https://t.me/${botUsername}?startapp=ref${userId}`;
-             const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent('⭐️ Забирай бесплатные звёзды со мной в GiftSlot')}`;
-             tg.openTelegramLink(shareUrl);
+             // Fallback for older clients
+             tg.switchInlineQuery('invite', ['users', 'groups']);
         }
     } else {
         alert('Эта функция работает только внутри Telegram');
