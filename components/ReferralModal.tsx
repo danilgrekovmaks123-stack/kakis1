@@ -14,28 +14,74 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
   const [isLoading, setIsLoading] = React.useState(false);
 
   const handleInvite = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+
     // @ts-ignore
     const tg = window.Telegram?.WebApp;
-    if (!tg) {
-        alert('Запустите приложение через Telegram');
-        return;
-    }
 
-    // Direct link sharing - simplest and most reliable method
-    // Requires no backend interaction, no API calls, no BOT_INVALID errors
-    const botUsername = 'GIFTslotdropbot'; // Replace if needed or fetch dynamically if possible
-    const inviteLink = `https://t.me/${botUsername}?startapp=ref${userId}`;
-    const text = `⭐️ Забирай бесплатные звёзды со мной в GiftSlot.\n\nНачни уже зарабатывать 👇\n${inviteLink}`;
-    
-    // Use Telegram's native sharing URL
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent('⭐️ Забирай бесплатные звёзды со мной в GiftSlot')}`;
-    
-    // Open in new window/tab using Telegram WebApp openLink method
-    // This triggers the native sharing sheet or opens a chat selection screen
-    tg.openTelegramLink(shareUrl);
-    
-    // Optional: Close modal after action
-    // onClose();
+    if (tg) {
+        // Debug: Check userId
+        if (!userId) {
+            alert('Ошибка: Не удалось определить ваш User ID. Запустите приложение через Telegram.');
+            setIsLoading(false);
+            return;
+        }
+
+        // Use shareMessage (prepared inline message) to get the fancy popup
+        // @ts-ignore
+        if (tg.shareMessage) {
+            try {
+                // Use relative URL to ensure we hit our own backend
+                const response = await fetch(`/api/referral/prepare`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: userId })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.prepared_message_id) {
+                        // @ts-ignore
+                        tg.shareMessage(data.prepared_message_id, (success) => {
+                             setIsLoading(false);
+                             if (!success) {
+                                 // User cancelled or failed
+                                 console.warn('User cancelled sharing');
+                             }
+                        });
+                        // Safety timeout
+                        setTimeout(() => setIsLoading(false), 3000);
+                        return;
+                    } else {
+                         console.error('No prepared_message_id received', data);
+                         alert('Ошибка сервера: не получен ID сообщения');
+                    }
+                } else {
+                    const errText = await response.text();
+                    console.error('Prepare API error:', errText);
+                    alert(`Ошибка API: ${errText}`);
+                }
+            } catch (e: any) {
+                // Ignore "WebAppShareMessageOpened" as it is not a real error
+                if (e?.toString().includes('WebAppShareMessageOpened') || e?.message?.includes('WebAppShareMessageOpened')) {
+                    console.log('Share message opened event caught');
+                } else {
+                    console.error('Network error during prepare:', e);
+                    alert(`Ошибка сети: ${e.message || e}`);
+                }
+            }
+        } else {
+             // Fallback if shareMessage is not supported (e.g. old clients)
+             const botUsername = 'GIFTslotdropbot';
+             const inviteLink = `https://t.me/${botUsername}?startapp=ref${userId}`;
+             const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent('⭐️ Забирай бесплатные звёзды со мной в GiftSlot')}`;
+             tg.openTelegramLink(shareUrl);
+        }
+    } else {
+        alert('Эта функция работает только внутри Telegram');
+    }
+    setIsLoading(false);
   };
 
   return (
