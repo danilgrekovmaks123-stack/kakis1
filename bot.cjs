@@ -41,7 +41,6 @@ if (!CASINO_URL) console.warn('WebApp URL is missing (CASINO_URL)');
 const app = express();
 const bot = new Telegraf(token);
 const PORT = process.env.PORT || 3002;
-const USE_WEBHOOK = process.env.USE_WEBHOOK === 'true';
 
 // Ensure data directory exists for persistent storage
 const DATA_DIR = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'data');
@@ -273,17 +272,11 @@ function logTransaction(data) {
 }
 
 // --- Bot Logic ---
-bot.catch((err, ctx) => {
-    console.error('Bot error', err);
-    try { ctx.answerCbQuery('Ошибка, попробуйте позже').catch(() => {}); } catch {}
-});
 bot.start((ctx) => {
-    const refPayload = ctx.startPayload;
-    const launchUrl = refPayload ? `${CASINO_URL}?ref=${encodeURIComponent(refPayload)}` : CASINO_URL;
     ctx.reply('Испытай удачу в GiftSlot\n🎁 Вводи промокоды на звезды и зарабатывай звезды каждый день', {
         reply_markup: {
             inline_keyboard: [
-                [{ text: 'Играть в GiftSlot', web_app: { url: launchUrl } }],
+                [{ text: 'Играть в GiftSlot', web_app: { url: CASINO_URL } }],
                 [{ text: 'Наш канал', url: 'https://t.me/giftslotcom' }]
             ]
         }
@@ -605,14 +598,20 @@ app.post('/api/referral/prepare', async (req, res) => {
     const refParam = `ref${userId}`;
     
     // Ensure we have a username
-    let botUserName = BOT_USERNAME || 'GIFTslotdropbot'; // Hardcode fallback to ensure link is never broken
-    if (!BOT_USERNAME) {
+    let botUserName = BOT_USERNAME;
+    // CRITICAL FIX: If we still don't have a username, fetch it immediately.
+    // We do NOT rely on cached value if it's empty.
+    if (!botUserName) {
         try {
             const me = await bot.telegram.getMe();
             botUserName = me.username;
-            BOT_USERNAME = botUserName; // cache it
+            BOT_USERNAME = botUserName; // Update cache
+            console.log(`Fetched missing bot username: ${botUserName}`);
         } catch (e) {
-            console.error('Failed to get bot username inside prepare, using fallback:', e);
+            console.error('CRITICAL: Failed to get bot username inside prepare:', e);
+            // Absolute fallback - hardcoded bot name if API fails completely
+            // You MUST ensure this matches your actual bot username if API fails
+            botUserName = 'GIFTslotdropbot'; 
         }
     }
 
@@ -634,9 +633,6 @@ app.post('/api/referral/prepare', async (req, res) => {
                 inline_keyboard: [[
                     // Use ?startapp parameter for Main Mini App (requires Menu Button to be set up)
                     { text: 'Получить 🎁', url: `https://t.me/${botUserName}?startapp=${refParam}` }
-                ],[
-                    // Fallback for clients where startapp is not supported
-                    { text: 'Открыть через чат', url: `https://t.me/${botUserName}?start=${refParam}` }
                 ]]
             }
         };
@@ -669,8 +665,8 @@ const startBot = async () => {
             console.error('Failed to fetch bot info:', e);
         }
 
-        // Prefer polling to ensure bot always answers. Enable webhook only if explicitly requested.
-        if (USE_WEBHOOK && CASINO_URL && CASINO_URL.startsWith('https')) {
+        // Use Webhook if in production and CASINO_URL is available (and valid)
+        if (process.env.NODE_ENV === 'production' && CASINO_URL && CASINO_URL.startsWith('https')) {
             const webhookPath = `/telegraf/${token}`;
             const webhookUrl = `${CASINO_URL}${webhookPath}`;
             
@@ -685,12 +681,12 @@ const startBot = async () => {
             console.log('Bot webhook configured successfully.');
         } else {
             // Use Polling for local development
-            console.log('Using Polling (forced)...');
+            console.log('Using Polling...');
             // Clear webhook just in case it was set previously
             try {
                 await bot.telegram.deleteWebhook();
                 await bot.launch();
-                console.log('Bot polling started. Bot will answer in chats.');
+                console.log('Bot polling started.');
             } catch (err) {
                 console.warn('Bot polling failed to start (likely due to invalid token). API will still work.');
                 console.warn(err.message);
