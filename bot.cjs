@@ -668,16 +668,30 @@ app.post('/api/referral/prepare', async (req, res) => {
     }
 });
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function retryApi(fn, retries = 5, delay = 2000) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await fn();
+        } catch (e) {
+            console.error(`API Attempt ${i + 1} failed: ${e.message}`);
+            if (i === retries - 1) throw e;
+            await sleep(delay);
+        }
+    }
+}
+
 // --- Start Servers ---
 const startBot = async () => {
     try {
-        // Fetch Bot Info first to get Username
+        // Fetch Bot Info first to get Username (with retry)
         try {
-            const me = await bot.telegram.getMe();
+            const me = await retryApi(() => bot.telegram.getMe());
             BOT_USERNAME = me.username;
             console.log(`Bot initialized: @${BOT_USERNAME}`);
         } catch (e) {
-            console.error('Failed to fetch bot info:', e);
+            console.error('Failed to fetch bot info after retries:', e);
         }
 
         // Use Webhook if in production and CASINO_URL is available (and valid)
@@ -687,8 +701,8 @@ const startBot = async () => {
             
             console.log(`Using Webhook: ${webhookUrl}`);
             
-            // Set webhook
-            await bot.telegram.setWebhook(webhookUrl);
+            // Set webhook with retry
+            await retryApi(() => bot.telegram.setWebhook(webhookUrl));
             
             // Handle updates via Express
             app.use(bot.webhookCallback(webhookPath));
