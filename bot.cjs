@@ -326,9 +326,8 @@ bot.on('inline_query', async (ctx) => {
     const userId = ctx.from.id;
     const refParam = `ref${userId}`;
     const botUserName = ctx.botInfo.username;
-
-    // URL картинки для превью (замените на свою реальную картинку/баннер)
-    const photoUrl = 'https://placehold.co/600x400/232e3c/FFF?text=Gift+Slot+Bonus'; 
+    
+    const photoUrl = 'https://raw.githubusercontent.com/danilgrekovmaks123-stack/kakis1/main/public/zaberi.jpg';
 
     await ctx.answerInlineQuery([{
         type: 'photo',
@@ -339,7 +338,7 @@ bot.on('inline_query', async (ctx) => {
         caption: '⭐️ Хочешь подарю тебе звезды и подарки?\n\nПолучай их каждые 24 часа в бесплатной рулетке!',
         reply_markup: {
             inline_keyboard: [[
-                { text: 'Получить 🎁', url: `https://t.me/${botUserName}?start=${refParam}` }
+                { text: 'Получить 🎁', url: `https://t.me/${botUserName}?startapp=${refParam}` }
             ]]
         }
     }], { cache_time: 0, is_personal: true });
@@ -637,7 +636,6 @@ app.post('/api/referral/prepare', async (req, res) => {
         console.log(`Preparing message for user ${userId} via @${botUserName}...`);
         
         // Ensure result is a valid JSON string of InlineQueryResult
-        // Use the fetched botUserName to ensure the link matches the bot
         const resultObject = {
             type: 'photo',
             id: `ref_${userId}_${Date.now()}`,

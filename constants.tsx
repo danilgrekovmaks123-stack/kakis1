@@ -54,6 +54,7 @@ export const THEME_IMAGES: Record<ThemeId, Record<string, string>> = {
 };
 
 export const SYMBOL_CONFIG: Record<SymbolType, { color: string, icon?: React.ReactNode, imageUrl?: string, label?: string, multiplier: number }> = {
+  [SymbolType.EMPTY]: { color: 'transparent', multiplier: 0 },
   // Low
   [SymbolType.PLANE]: { 
     color: '#5cabeb', 

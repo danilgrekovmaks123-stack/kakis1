@@ -1,4 +1,5 @@
 export enum SymbolType {
+  EMPTY = 'EMPTY',
   // Low (Common UI icons)
   PLANE = 'PLANE', // Paper Plane
   LOCK = 'LOCK',   // Secret Chat

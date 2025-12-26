@@ -21,20 +21,40 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
     const tg = window.Telegram?.WebApp;
 
     if (tg) {
-        // DEBUG: Check for Test ID
-        if (userId === 123456) {
-             alert('Ошибка: Вы в тестовом режиме (ID 123456). Перезапустите приложение в Telegram.');
-             setIsLoading(false);
-             return;
-        }
-
         if (!userId) {
             alert('Ошибка: Не удалось определить ваш User ID.');
             setIsLoading(false);
             return;
         }
 
-        // Try the "Fancy" Popup (Prepared Message)
+        const receiver = tg.initDataUnsafe?.receiver;
+        const receiverId: number | undefined = receiver?.id;
+        const receiverUsername: string | undefined = receiver?.username;
+
+        let backendBot: any = null;
+        try {
+            const r = await fetch('/api/debug/bot-info');
+            if (r.ok) backendBot = await r.json();
+        } catch {}
+
+        const backendId: number | undefined = backendBot?.id;
+        const backendUsername: string | undefined = backendBot?.username;
+
+        const mismatchById = receiverId && backendId && receiverId !== backendId;
+        const mismatchByUsername =
+            receiverUsername &&
+            backendUsername &&
+            receiverUsername.toLowerCase() !== backendUsername.toLowerCase();
+
+        if (mismatchById || mismatchByUsername) {
+            const a = receiverUsername ? `@${receiverUsername}` : receiverId ? String(receiverId) : 'unknown';
+            const b = backendUsername ? `@${backendUsername}` : backendId ? String(backendId) : 'unknown';
+            alert(`Ошибка настроек: WebApp открыт в боте ${a}, а сервер работает с ботом ${b}. Из-за этого Telegram показывает BOT_INVALID.`);
+            tg.switchInlineQuery('', ['users', 'groups']);
+            setIsLoading(false);
+            return;
+        }
+
         // @ts-ignore
         if (tg.shareMessage) {
             try {
@@ -43,37 +63,29 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: userId })
                 });
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     if (data.prepared_message_id) {
                         // @ts-ignore
-                        tg.shareMessage(data.prepared_message_id, (success) => {
-                             setIsLoading(false);
-                             if (!success) {
-                                 // If user cancelled, do nothing.
-                                 // If BOT_INVALID happens, it's a client-side toast, we can't catch it here easily.
-                             }
+                        tg.shareMessage(data.prepared_message_id, (success: boolean) => {
+                            setIsLoading(false);
+                            if (!success) {
+                                tg.switchInlineQuery('', ['users', 'groups']);
+                            }
                         });
-                        // Safety timeout
                         setTimeout(() => setIsLoading(false), 3000);
                         return;
-                    } else {
-                         console.error('No prepared_message_id', data);
-                         // Fallback to switchInlineQuery if prepare fails
-                         tg.switchInlineQuery('invite', ['users', 'groups']);
                     }
-                } else {
-                    console.error('Prepare API Error');
-                    tg.switchInlineQuery('invite', ['users', 'groups']);
                 }
+
+                tg.switchInlineQuery('', ['users', 'groups']);
             } catch (e) {
                 console.error('Share error', e);
-                tg.switchInlineQuery('invite', ['users', 'groups']);
+                tg.switchInlineQuery('', ['users', 'groups']);
             }
         } else {
-             // Fallback for older clients
-             tg.switchInlineQuery('invite', ['users', 'groups']);
+            tg.switchInlineQuery('', ['users', 'groups']);
         }
     } else {
         alert('Эта функция работает только внутри Telegram');

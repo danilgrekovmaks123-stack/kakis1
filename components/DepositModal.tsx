@@ -183,7 +183,7 @@ export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, o
                                 onClick={() => setAmount(val.toString())}
                                 className={`py-2 rounded-xl border transition-all font-bold ${
                                     amount === val.toString() 
-                                    ? (activeCurrency === 'TON' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-yellow-500/20 border-yellow-500 text-yellow-400')
+                                    ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400'
                                     : 'bg-white/5 border-white/5 hover:bg-white/10 text-gray-300'
                                 }`}
                             >
@@ -213,7 +213,7 @@ export default function DepositModal({ isOpen, onClose, onDeposit, onWithdraw, o
                         className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all ${
                             !amount || parseFloat(amount) <= 0
                             ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                            : (activeCurrency === 'TON' ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-blue-500/25' : 'bg-yellow-500 hover:bg-yellow-600 text-white shadow-yellow-500/25')
+                            : 'bg-yellow-500 hover:bg-yellow-600 text-white shadow-yellow-500/25'
                         }`}
                     >
                         Оплатить {amount ? `${amount} ${activeCurrency}` : ''}
