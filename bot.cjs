@@ -336,10 +336,10 @@ bot.on('inline_query', async (ctx) => {
         photo_url: photoUrl,
         thumb_url: photoUrl,
         title: 'Подарить Звезды ⭐️',
-        caption: '⭐️ Хочешь подарю тебе звезды и подарки?\n\nПолучай их каждые 24 часа в бесплатной рулетке!',
+        caption: '⭐️ Забирай бесплатные звёзды со мной в GiftSlot.\n\nНачни уже зарабатывать 👇',
         reply_markup: {
             inline_keyboard: [[
-                { text: 'Получить 🎁', url: `https://t.me/${botUserName}?start=${refParam}` }
+                { text: 'Получить 🎁', url: `https://t.me/${botUserName}?startapp=${refParam}` }
             ]]
         }
     }], { cache_time: 0, is_personal: true });

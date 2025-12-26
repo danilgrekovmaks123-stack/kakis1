@@ -28,55 +28,24 @@ export default function ReferralModal({ isOpen, onClose, userId }: ReferralModal
             return;
         }
 
-        // @ts-ignore
-        if (tg.shareMessage) {
-            try {
-                const API_URL = import.meta.env.VITE_API_URL || '';
-                const response = await fetch(`${API_URL}/api/referral/prepare`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: userId })
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.prepared_message_id) {
-                        // @ts-ignore
-                        tg.shareMessage(data.prepared_message_id, (success) => {
-                             setIsLoading(false);
-                             if (!success) {
-                                 console.warn('User cancelled sharing');
-                             }
-                        });
-                        // Note: If shareMessage is async or returns immediately, isLoading(false) might need to be handled differently.
-                        // However, standard SDK doesn't always guarantee callback on close. 
-                        // So we set timeout to clear loading state just in case.
-                        setTimeout(() => setIsLoading(false), 2000);
-                        return;
-                    } else {
-                         alert('Ошибка сервера: не получен ID сообщения');
-                    }
-                } else {
-                    const errText = await response.text();
-                    alert(`Ошибка API: ${errText}`);
-                    console.error('Prepare API failed', errText);
-                }
-            } catch (e: any) {
-                // Ignore "WebAppShareMessageOpened" error as it might be a false positive event
-                if (e?.toString().includes('WebAppShareMessageOpened') || e?.message?.includes('WebAppShareMessageOpened')) {
-                    console.log('Share message opened event caught as error', e);
-                } else {
-                    alert(`Ошибка сети: ${e}`);
-                    console.error('Failed to prepare message', e);
-                }
-            }
-        } else {
-             alert('Ваш Telegram не поддерживает shareMessage. Пожалуйста, обновите приложение.');
+        // Use switchInlineQuery - simpler and more reliable than shareMessage/prepare
+        // This opens chat selection and then inserts the inline result
+        try {
+            // We pass an empty string or a specific keyword if needed. 
+            // Our bot handles any inline query by generating a referral link for the user.
+            tg.switchInlineQuery('invite', ['users', 'groups', 'channels']);
+            
+            // Close modal after a short delay (optional, as user goes to chat selection)
+            setTimeout(() => setIsLoading(false), 1000);
+        } catch (e: any) {
+            console.error('switchInlineQuery failed', e);
+            alert(`Не удалось открыть выбор чата: ${e.message || e}`);
+            setIsLoading(false);
         }
     } else {
         alert('Эта функция работает только внутри Telegram');
+        setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   return (
