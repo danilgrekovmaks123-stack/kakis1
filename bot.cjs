@@ -336,10 +336,10 @@ bot.on('inline_query', async (ctx) => {
         photo_url: photoUrl,
         thumb_url: photoUrl,
         title: 'Подарить Звезды ⭐️',
-        caption: '⭐️ Забирай бесплатные звёзды со мной в GiftSlot.\n\nНачни уже зарабатывать 👇',
+        caption: '⭐️ Хочешь подарю тебе звезды и подарки?\n\nПолучай их каждые 24 часа в бесплатной рулетке!',
         reply_markup: {
             inline_keyboard: [[
-                { text: 'Получить 🎁', url: `https://t.me/${botUserName}?startapp=${refParam}` }
+                { text: 'Получить 🎁', url: `https://t.me/${botUserName}?start=${refParam}` }
             ]]
         }
     }], { cache_time: 0, is_personal: true });
@@ -590,6 +590,21 @@ app.post('/api/referral/activate', (req, res) => {
     res.json({ success: true, reward: rewardAmount });
 });
 
+
+// --- Debug Endpoint ---
+app.get('/api/debug/bot-info', async (req, res) => {
+    try {
+        const me = await bot.telegram.getMe();
+        res.json({ 
+            username: me.username, 
+            id: me.id, 
+            is_bot: me.is_bot,
+            token_prefix: token.split(':')[0] 
+        });
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to get bot info', details: e.message });
+    }
+});
 
 app.post('/api/referral/prepare', async (req, res) => {
     const { userId } = req.body;
